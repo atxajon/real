@@ -1,3 +1,9 @@
 /**
  * Place your custom styles here.
  */
+body {
+  background: url('../images/main-bg-tile.gif') repeat;
+}
+#main-wrapper {
+  background: white;
+}
