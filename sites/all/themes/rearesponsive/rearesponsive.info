@@ -32,6 +32,7 @@ stylesheets[all][] = css/style.css
 ; ;; Scripts
 ; ;;;;;;;;;;;;;;;;;;;;;
 scripts[] = 'js/bootstrap.min.js'
+scripts[] = 'js/scripts.js'
 
 
 ; ; Disable BootstrapCDN if using Bootstrap source files in your sub-theme.
