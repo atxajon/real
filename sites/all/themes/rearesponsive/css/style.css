@@ -1,9 +1,102 @@
-/**
- * Place your custom styles here.
- */
+
 body {
   background: url('../images/main-bg-tile.gif') repeat;
 }
 #main-wrapper {
   background: white;
+}
+
+a {
+  color: #559767;
+}
+
+/**
+ * Bootstrap sidebar below main content col on mobile
+ */
+#main-col {
+  float: right;
+}
+#menu-sidebar {
+  float: left;
+}
+
+/**
+ * Banner image + page title styles
+ */
+#banner-box {
+  min-height: 70px;
+  position: relative;
+}
+.banner-page-title {
+  position: absolute;
+  z-index: 10;
+  left: 0;
+  bottom: 0;
+  color: #559767;
+  font-size: 27px;
+  text-transform: uppercase;
+  font-weight: 300;
+  margin: 0;
+  padding: 0;
+  background-color: #FFFFFF;
+  padding: 20px 20px 16px 17px;
+}
+
+/**
+ * Sidebar menu
+ */
+.menu-block-wrapper .menu a {
+  color: #2F2D2E;
+  padding: 5px 0;
+}
+.menu-block-wrapper .menu .active-trail a {
+  color: #559767;
+}
+
+/**
+ * Quicktabs gral styles
+ */
+.quicktabs-wrapper {
+  margin-top: 20px;
+}
+.quicktabs-tabs {
+  margin: 10px 0 0;
+  padding: 0;
+  height: 25px;
+  border-bottom: 2px solid #151E46;
+}
+.block-quicktabs .quicktabs-tabs li {
+  padding: 0;
+}
+.quicktabs-tabs a {
+  color: #151E46;
+  background: #d9d9d9;
+}
+.quicktabs-tabs a:hover {
+  text-decoration: none;
+}
+.quicktabs-tabs li a {
+  padding: 5px 10px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
+.quicktabs-tabs .active a {
+  background: gray;
+  color: white;
+}
+
+/**
+ * News qtabs
+ */
+.view-news th {
+  font-size: 12px;
+  background-color: #efefef;
+  padding: 10px 5px 10px 5px;
+  color: #151E46;
+}
+.view-news .views-field-field-news-release-date {
+  width: 25%;
+}
+.view-news .even {
+  background: #efefef;
 }

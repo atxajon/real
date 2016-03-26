@@ -4,13 +4,49 @@
  * The primary PHP file for this theme.
  */
 
+
+/**
+ * Page alter hook.
+ * @param unknown_type $page
+ */
+function rearesponsive_page_alter(&$page) {
+  if ($node = menu_get_object()){
+    $thefields = array('field_page_banner_image' => 'header',
+    );
+    foreach ($thefields as $key => $value) {
+      _assign_field($key,$value,$node->nid,$page);
+    }
+  }
+}
+
+/**
+ * Moves fields outside main content region into other theme regions.
+ * @param unknown_type $which
+ * @param unknown_type $where
+ * @param unknown_type $nid
+ * @param unknown_type $page
+ */
+function _assign_field($which, $where, $nid, &$page){
+  $field = drupal_render($page['content']['system_main']['nodes'][$nid][$which]);
+  unset($page['content']['system_main']['nodes'][$nid][$which]);
+  if ($field){
+    if (!isset($page[$where])){
+      $page[$where]['#region'] = $where;
+      $page[$where]['#theme_wrappers'][] = 'region';
+    }
+    $page[$where][$which]['#markup']= $field;
+  }
+}
+
+
+
 /**
  * Override yearly news tabs titles dynamically; set to 5 years before archive by default.
  * @param unknown_type $quicktabs
  */
 function rearesponsive_quicktabs_alter($quicktabs) {
   if ($quicktabs->machine_name == 'test') {
-    adjustTabs($quicktabs, 5);
+    _adjustTabs($quicktabs, 5);
   }
 }
 
@@ -21,7 +57,7 @@ function rearesponsive_quicktabs_alter($quicktabs) {
  * @param unknown_type $tab_machine_name
  * @param unknown_type $tabs_before_archive
  */
-function adjustTabs($quicktabs, $tabs_before_archive){
+function _adjustTabs($quicktabs, $tabs_before_archive){
   $currYear = date('Y');
   $count = $tabs_before_archive;
   $xtrayear = FALSE;
