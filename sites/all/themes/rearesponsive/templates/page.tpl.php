@@ -137,7 +137,7 @@
     </header>
     <!-- /#page-header -->
 
-    <div class="row">
+    <div id="cols-area" class="row">
 
       <section<?php print $content_column_class; ?> id="main-col">
         <?php if (!empty($page['highlighted'])): ?>

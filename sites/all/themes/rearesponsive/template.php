@@ -38,15 +38,31 @@ function _assign_field($which, $where, $nid, &$page){
   }
 }
 
-
+function rearesponsive_preprocess_block(&$variables, $hook) {
+  // Unset sidebar menu block when on nodes belonging to Main Menu
+  // The block only needs to show on nodes belonging to Footer Menu
+  if ($variables['elements']['#block']->bid == '93') {
+    if ($node = menu_get_object()) {
+      $trail = menu_get_active_trail();
+      $lastInTrail = end($trail);
+      if ($lastInTrail['menu_name'] == 'main-menu') {
+        $variables['content'] = '';
+      }
+    }
+  }
+}
 
 /**
  * Override yearly news tabs titles dynamically; set to 5 years before archive by default.
  * @param unknown_type $quicktabs
  */
 function rearesponsive_quicktabs_alter($quicktabs) {
-  if ($quicktabs->machine_name == 'test') {
-    _adjustTabs($quicktabs, 5);
+  switch ($quicktabs->machine_name) {
+    case 'test':
+    case 'financial_reports':
+    case 'events':
+      _adjustTabs($quicktabs, 5);
+      break;
   }
 }
 

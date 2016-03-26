@@ -5,24 +5,33 @@ body {
 #main-wrapper {
   background: white;
 }
+h1,
+.h1 {
+  font-size:24px;
+}
+h2,
+.h2 {
+  font-size:20px;
+}
+h3,
+.h3 {
+  font-size:18px;
+}
+h4,
+.h4 {
+  font-size:16px;
+}
 
 a {
   color: #559767;
 }
 
 /**
- * Bootstrap sidebar below main content col on mobile
- */
-#main-col {
-  float: right;
-}
-#menu-sidebar {
-  float: left;
-}
-
-/**
  * Banner image + page title styles
  */
+#page-header {
+  margin-bottom: 20px;
+}
 #banner-box {
   min-height: 70px;
   position: relative;
@@ -45,9 +54,17 @@ a {
 /**
  * Sidebar menu
  */
+.menu-block-wrapper .menu li {
+  font-size: 15px;
+  border-bottom: 1px dotted #8A8A8A;
+}
 .menu-block-wrapper .menu a {
   color: #2F2D2E;
   padding: 5px 0;
+}
+.menu-block-wrapper .menu > li > a:hover {
+  background: none;
+  color: #559767;
 }
 .menu-block-wrapper .menu .active-trail a {
   color: #559767;
@@ -84,19 +101,82 @@ a {
   background: gray;
   color: white;
 }
-
 /**
- * News qtabs
+ * Qtabs yearly tab table styles
  */
-.view-news th {
+.quicktabs-tabpage .view th {
   font-size: 12px;
   background-color: #efefef;
   padding: 10px 5px 10px 5px;
   color: #151E46;
 }
-.view-news .views-field-field-news-release-date {
+.quicktabs-tabpage .view tr > td:first-child {
   width: 25%;
 }
-.view-news .even {
+.quicktabs-tabpage .view .even {
   background: #efefef;
+}
+
+.search-results {
+  padding: 0 0 0 15px;
+}
+
+/**
+ * Footer blocks
+ */
+.footer {
+  padding: 15px;
+  font-size: 11px;
+  font-style: italic;
+  color: #8A8A8A;
+}
+.region-footer .block-block {
+  float: left;
+}
+.region-footer .block-menu {
+  float: right;
+}
+.region-footer .block-menu .leaf {
+  display: inline-block;
+}
+.region-footer .block-menu .leaf a {
+  padding: 0 10px;
+  color: #8A8A8A;
+  border-right: 1px solid #8A8A8A;
+}
+.region-footer .block-menu .last a {
+  border-right: none;
+}
+.region-footer .menu > li > a:hover {
+  text-decoration: underline;
+  background: none;
+}
+
+@media (min-width: 768px) {
+  /**
+  * Bootstrap sidebar below main content col on mobile
+  */
+  #main-col {
+    float: right;
+  }
+  #menu-sidebar {
+    float: left;
+  }
+
+  .form-search,
+  .search-form {
+    width: 40%;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+
+}
+
+@media (min-width: 1200px) {
+
 }
