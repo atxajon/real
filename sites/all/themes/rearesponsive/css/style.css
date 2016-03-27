@@ -2,28 +2,93 @@
 body {
   background: url('../images/main-bg-tile.gif') repeat;
 }
+
 #main-wrapper {
   background: white;
+  position: relative;
 }
+
 h1,
 .h1 {
-  font-size:24px;
+  font-size: 24px;
 }
+
 h2,
 .h2 {
-  font-size:20px;
+  font-size: 20px;
 }
+
 h3,
 .h3 {
-  font-size:18px;
+  font-size: 18px;
 }
+
 h4,
 .h4 {
-  font-size:16px;
+  font-size: 16px;
 }
 
 a {
   color: #559767;
+}
+
+/**
+* Top cookie block
+*/
+.region-top .block {
+  background: white;
+  padding: 10px;
+  font-size: 12px;
+}
+
+#logo-box {
+display: none;
+}
+
+/**
+ * Main nav styles
+ */
+/*
+ * Bootstrap override
+ * make dropdown menus do dropdown on hover,
+ * and allow parent link to be clickable
+ */
+ul.nav li.dropdown:hover > ul.dropdown-menu {
+  display: block !important;
+}
+
+ul.nav li.dropdown ul.dropdown-menu {
+  margin-top: 0;
+}
+
+.navbar {
+  min-height: auto;
+  margin-bottom: 0;
+}
+
+.dropdown-menu {
+  border-bottom: 6px solid #569966;
+  min-width: 225px;
+}
+
+.navbar-nav > li > a {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+.navbar-nav > li.active > .active {
+  background: white;
+}
+
+.navbar-collapse .nav a {
+  text-transform: uppercase;
+}
+
+.navbar-collapse .nav li.active-trail > a {
+  color: #559767;
+  border-left: 1px solid #BFBFBF;
+  border-right: 1px solid #BFBFBF;
+  background: white;
 }
 
 /**
@@ -32,10 +97,12 @@ a {
 #page-header {
   margin-bottom: 20px;
 }
+
 #banner-box {
   min-height: 70px;
   position: relative;
 }
+
 .banner-page-title {
   position: absolute;
   z-index: 10;
@@ -48,7 +115,7 @@ a {
   margin: 0;
   padding: 0;
   background-color: #FFFFFF;
-  padding: 20px 20px 16px 17px;
+  padding: 7px;
 }
 
 /**
@@ -58,14 +125,17 @@ a {
   font-size: 15px;
   border-bottom: 1px dotted #8A8A8A;
 }
+
 .menu-block-wrapper .menu a {
   color: #2F2D2E;
   padding: 5px 0;
 }
+
 .menu-block-wrapper .menu > li > a:hover {
   background: none;
   color: #559767;
 }
+
 .menu-block-wrapper .menu .active-trail a {
   color: #559767;
 }
@@ -76,31 +146,38 @@ a {
 .quicktabs-wrapper {
   margin-top: 20px;
 }
+
 .quicktabs-tabs {
   margin: 10px 0 0;
   padding: 0;
   height: 25px;
   border-bottom: 2px solid #151E46;
 }
+
 .block-quicktabs .quicktabs-tabs li {
   padding: 0;
 }
+
 .quicktabs-tabs a {
   color: #151E46;
   background: #d9d9d9;
 }
+
 .quicktabs-tabs a:hover {
   text-decoration: none;
 }
+
 .quicktabs-tabs li a {
   padding: 5px 10px;
   border-top-left-radius: 3px;
   border-top-right-radius: 3px;
 }
+
 .quicktabs-tabs .active a {
   background: gray;
   color: white;
 }
+
 /**
  * Qtabs yearly tab table styles
  */
@@ -110,9 +187,11 @@ a {
   padding: 10px 5px 10px 5px;
   color: #151E46;
 }
+
 .quicktabs-tabpage .view tr > td:first-child {
   width: 25%;
 }
+
 .quicktabs-tabpage .view .even {
   background: #efefef;
 }
@@ -130,35 +209,78 @@ a {
   font-style: italic;
   color: #8A8A8A;
 }
+
 .region-footer .block-block {
   float: left;
 }
+
 .region-footer .block-menu {
   float: right;
 }
+
 .region-footer .block-menu .leaf {
   display: inline-block;
 }
+
 .region-footer .block-menu .leaf a {
   padding: 0 10px;
   color: #8A8A8A;
   border-right: 1px solid #8A8A8A;
 }
+
 .region-footer .block-menu .last a {
   border-right: none;
 }
+
 .region-footer .menu > li > a:hover {
   text-decoration: underline;
   background: none;
 }
 
+@media (max-width: 768px) {
+  .navbar-collapse .navbar-nav {
+    padding-left: 10px;
+  }
+  #navbar .dropdown-menu {
+    display: none !important;
+  }
+}
+
 @media (min-width: 768px) {
+
+  /**
+ * Top cookie block
+ */
+  .region-top .block {
+    padding: 20px 100px 70px 100px;
+  }
+
+  .banner-page-title {
+    padding: 20px 20px 16px 17px;
+  }
+  #logo-box {
+    display: block;
+    position: absolute;
+    top: 90px;
+    left: 405px;
+    z-index: 100;
+  }
+  .navbar {
+    border: none;
+  }
+  .navbar-default .navbar-collapse {
+    border-top: 3px solid black;
+    border-bottom: 1px solid #000000;
+    padding-left: 0;
+  }
+
   /**
   * Bootstrap sidebar below main content col on mobile
   */
   #main-col {
     float: right;
   }
+
   #menu-sidebar {
     float: left;
   }
@@ -170,13 +292,29 @@ a {
 }
 
 @media (min-width: 768px) and (max-width: 991px) {
-
+  #logo-box {
+    top: 137px;
+    left: 378px;
+  }
+  #logo-box img {
+    max-width: 50%;
+  }
+  .after-logo-first {
+    margin-left: 70px;
+  }
 }
 
 @media (min-width: 992px) and (max-width: 1199px) {
-
+  .after-logo-first {
+    margin-left: 150px;
+  }
+  .field-name-field-page-banner-image img {
+    width: 100%;
+  }
 }
 
 @media (min-width: 1200px) {
-
+  .after-logo-first {
+    margin-left: 150px;
+  }
 }

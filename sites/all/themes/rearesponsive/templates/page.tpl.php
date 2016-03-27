@@ -74,6 +74,8 @@
  */
 ?>
 <div id="main-wrapper" class="container">
+  <?php print render($page['top']); ?>
+  <div id="logo-box"><a href="/" title="Link to R.E.A Holdings homepage"><img src="/sites/all/themes/rearesponsive/images/rea_logo.png" border="0" alt="R.E.A Holdings PLC" title="R.E.A Holdings PLC" data-pin-nopin="true"></a></div>
   <header id="navbar" role="banner" class="<?php print $navbar_classes; ?>">
     <div class="<?php print $container_class; ?>">
       <div class="navbar-header">
