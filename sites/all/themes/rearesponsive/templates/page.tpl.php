@@ -120,7 +120,9 @@
       <?php endif; ?>
     </div>
   </header>
-
+  <?php if (!empty($page['highlighted'])): ?>
+    <div class="highlighted "><?php print render($page['highlighted']); ?></div>
+  <?php endif; ?>
   <div class="main-container <?php print $container_class; ?>">
 
     <header role="banner" id="page-header">
@@ -142,10 +144,6 @@
     <div id="cols-area" class="row">
 
       <section<?php print $content_column_class; ?> id="main-col">
-        <?php if (!empty($page['highlighted'])): ?>
-          <div
-            class="highlighted "><?php print render($page['highlighted']); ?></div>
-        <?php endif; ?>
         <?php if (!empty($breadcrumb)): print $breadcrumb; endif; ?>
         <a id="main-content"></a>
         <?php print $messages; ?>
