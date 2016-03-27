@@ -32,6 +32,10 @@ h4,
 a {
   color: #559767;
 }
+img {
+  max-width: 100%;
+  height: auto;
+}
 .block-title {
   font-size: 15px;
   color: #559767;
@@ -231,6 +235,10 @@ ul.nav li.dropdown ul.dropdown-menu {
 .front .main-container {
   border-top: 1px solid black;
 }
+.front .main-container .block-block img {
+  width: 100%;
+}
+
 
 .front .view a {
   color: #2F2F2F;
@@ -353,17 +361,6 @@ ul.nav li.dropdown ul.dropdown-menu {
   .front .view-financial-reports a {
     float: right;
     width: 88%;
-  }
-
-  /**
-  * Bootstrap sidebar below main content col on mobile
-  */
-  #main-col {
-    float: right;
-  }
-
-  #menu-sidebar {
-    float: left;
   }
 
   .form-search,

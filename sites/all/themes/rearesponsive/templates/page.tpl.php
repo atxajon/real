@@ -144,6 +144,8 @@
     <div id="cols-area" class="row">
 
       <section<?php print $content_column_class; ?> id="main-col">
+        <div class="row">
+          <div class="col-sm-9 pull-right">
         <?php if (!empty($breadcrumb)): print $breadcrumb; endif; ?>
         <a id="main-content"></a>
         <?php print $messages; ?>
@@ -157,13 +159,17 @@
           <ul class="action-links"><?php print render($action_links); ?></ul>
         <?php endif; ?>
         <?php print render($page['content']); ?>
+          </div>
+        <?php if (!empty($page['sidebar_first'])): ?>
+          <aside id="menu-sidebar" class="col-sm-3" role="complementary">
+            <?php print render($page['sidebar_first']); ?>
+          </aside>  <!-- /#sidebar-first -->
+        </div>
+        <?php endif; ?>
+
       </section>
 
-      <?php if (!empty($page['sidebar_first'])): ?>
-        <aside id="menu-sidebar" class="col-sm-3" role="complementary">
-          <?php print render($page['sidebar_first']); ?>
-        </aside>  <!-- /#sidebar-first -->
-      <?php endif; ?>
+
 
       <?php if (!empty($page['sidebar_second'])): ?>
         <aside class="col-sm-3" role="complementary">
