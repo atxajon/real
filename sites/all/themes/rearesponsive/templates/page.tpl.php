@@ -145,7 +145,7 @@
 
       <section<?php print $content_column_class; ?> id="main-col">
         <div class="row">
-          <div class="col-sm-9 pull-right">
+          <div class="col-sm-9 main-content-col">
         <?php if (!empty($breadcrumb)): print $breadcrumb; endif; ?>
         <a id="main-content"></a>
         <?php print $messages; ?>

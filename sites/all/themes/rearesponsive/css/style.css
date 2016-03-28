@@ -3,7 +3,17 @@ body {
   background: url('../images/main-bg-tile.gif') repeat;
   color: #2F2F2F;
 }
-
+.cke_editable {
+  background: none;
+  padding: 10px;
+}
+.page-node-edit body {
+  background: none;
+}
+.cke_editable .intro-text {
+  font-size: 15px!important;
+  color: #559767;
+}
 #main-wrapper {
   background: white;
   position: relative;
@@ -171,11 +181,14 @@ ul.nav li.dropdown ul.dropdown-menu {
 .quicktabs-wrapper {
   margin-top: 20px;
 }
+ul.quicktabs-tabs li {
+  display: block;
+  margin-bottom: 10px;
+}
 
 .quicktabs-tabs {
   margin: 10px 0 0;
   padding: 0;
-  height: 25px;
   border-bottom: 2px solid #151E46;
 }
 
@@ -201,6 +214,11 @@ ul.nav li.dropdown ul.dropdown-menu {
 .quicktabs-tabs .active a {
   background: gray;
   color: white;
+}
+
+#quicktabs-company_history a {
+  font-size:14px;
+  padding: 5px 10px;
 }
 
 /**
@@ -276,6 +294,9 @@ ul.nav li.dropdown ul.dropdown-menu {
   display: block;
 }
 
+#main-col {
+  padding: 0;
+}
 
 /**
  * Footer blocks
@@ -285,14 +306,6 @@ ul.nav li.dropdown ul.dropdown-menu {
   font-size: 11px;
   font-style: italic;
   color: #8A8A8A;
-}
-
-.region-footer .block-block {
-  float: left;
-}
-
-.region-footer .block-menu {
-  float: right;
 }
 
 .region-footer .block-menu .leaf {
@@ -320,6 +333,12 @@ ul.nav li.dropdown ul.dropdown-menu {
   }
   #navbar .dropdown-menu {
     display: none !important;
+  }
+  .main-content-col {
+    margin-bottom: 20px;
+  }
+  .block {
+    margin-bottom: 20px;
   }
 }
 
@@ -350,6 +369,22 @@ ul.nav li.dropdown ul.dropdown-menu {
     border-bottom: 1px solid #000000;
     padding-left: 0;
   }
+  .main-content-col {
+    float: right;
+  }
+  ul.quicktabs-tabs li {
+    display: inline;
+  }
+  .quicktabs-tabs {
+    height: 25px;
+  }
+  #quicktabs-company_history .quicktabs-tabs {
+    height: 24px;
+  }
+  #quicktabs-company_history a {
+    font-size:11px;
+    padding: 5px;
+  }
 
   /**
   * Front page views specific styles
@@ -360,12 +395,20 @@ ul.nav li.dropdown ul.dropdown-menu {
   }
   .front .view-financial-reports a {
     float: right;
-    width: 88%;
+    width: 80%;
   }
 
   .form-search,
   .search-form {
     width: 40%;
+  }
+
+  .region-footer .block-block {
+    float: left;
+  }
+
+  .region-footer .block-menu {
+    float: right;
   }
 }
 
@@ -379,6 +422,12 @@ ul.nav li.dropdown ul.dropdown-menu {
   }
   .after-logo-first {
     margin-left: 70px;
+  }
+}
+
+@media (min-width: 992px) and (max-width: 1199px) {
+  .front .view-financial-reports a {
+    width: 85%;
   }
 }
 

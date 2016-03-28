@@ -70,6 +70,7 @@ function rearesponsive_quicktabs_alter($quicktabs) {
     case 'test':
     case 'financial_reports':
     case 'events':
+    case 'shareholder_info':
       _adjustTabs($quicktabs, 5);
       break;
   }

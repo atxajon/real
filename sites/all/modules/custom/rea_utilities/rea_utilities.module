@@ -1,0 +1,5 @@
+<?php
+
+function rea_utilities_init() {
+  drupal_add_css(drupal_get_path('module', 'rea_utilities') . '/rea_utilities.css');
+}
