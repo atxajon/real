@@ -1,0 +1,5 @@
+name = G3D Telekurs Shareserver Client
+description = Module for connecting to Telekurs 
+dependencies[] = block
+package = Feeds
+core = 7.x

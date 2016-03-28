@@ -298,6 +298,13 @@ ul.quicktabs-tabs li {
   padding: 0;
 }
 
+.site-map-front-page {
+  display: none;
+}
+.site-map-box-menu .title {
+  display: none;
+}
+
 /**
  * Footer blocks
  */

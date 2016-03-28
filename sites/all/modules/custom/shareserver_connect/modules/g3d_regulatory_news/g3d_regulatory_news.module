@@ -1,0 +1,120 @@
+<?php
+function g3d_regulatory_news_ctools_plugin_api() {
+  return array("version" => "1");
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function g3d_regulatory_news_views_api() {
+  return array("version" => "3.0");
+}
+
+/**
+ * Implements hook_node_info().
+ */
+function g3d_regulatory_news_node_info() {
+  $items = array(
+    'regulatory_news' => array(
+      'name' => t('Regulatory News'),
+      'base' => 'node_content',
+      'description' => t('Stores the regulatory News the content should not be made editable by Content Managers'),
+      'has_title' => '1',
+      'title_label' => t('Title'),
+      'help' => '',
+    ),
+  );
+  return $items;
+}
+
+
+
+
+function  g3d_regulatory_news_menu(){
+    $items=array();
+    $items['regnews_sync'] = array(
+    'title' => 'Regulatory News Sync',
+    'page callback' => 'regnews_sync',
+    'access arguments' => array('Run Shares Update'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items; 
+}
+
+function g3d_regulatory_news_loaddata(){
+    
+    $ISIN=variable_get('share_price_ISIN');
+    $dateresult=db_query("SELECT field_regnews_publish_date_value FROM {field_data_field_regnews_publish_date} ORDER BY field_regnews_publish_date_value DESC LIMIT 0,1");
+     if($dateresult->rowCount()){
+         //get the results from after the date
+         $result=file_get_contents('http://rnsfeed.digitallook.com/?username=Global3_test&password=qitop278&isin='.$ISIN.',GB00B29BCK10&timestamp='.date('Ymd\THis',strtotime($dateresult->fetchColumn())));
+     }
+     else $result=file_get_contents('http://rnsfeed.digitallook.com/?username=Global3_test&password=qitop278&isin='.$ISIN.',GB00B29BCK10&days=830&limit=500');
+     $p = xml_parser_create();
+     xml_parse_into_struct($p, $result, $vals, $index);
+     xml_parser_free($p);
+     return array('vals'=>$vals,'index'=>$index);
+}
+
+function regnews_sync(){
+    $data=g3d_regulatory_news_loaddata();
+    $rows=array();
+    print_r($data['vals']);
+    foreach($data['vals'] as $tag){
+        if($tag['tag']=='ARTICLE_CONTENT' && $tag['type']=='open'){
+            //start processing
+            $row=array();
+            $row['ID']=$tag['attributes']['ID'];
+            $row['status']=$tag['attributes']['STATUS'];
+        }
+        if($tag['tag']=='TITLE'){
+            $row['title']=$tag['value'];
+        }
+        if($tag['tag']=='DATE'){
+            $row['date']=$tag['value'];
+        }
+        if($tag['tag']=='TIME'){
+            $row['time']=$tag['value'];
+        }
+        if($tag['tag']=='BODY'){
+            $row['body']=$tag['value'];
+        }
+        if($tag['tag']=='CATEGORY_ID'){
+            $row['category_id']=$tag['value'];
+        }
+        if($tag['tag']=='ARTICLE_CONTENT' && $tag['type']=='close'){
+            $rows[]=$row;   
+        }
+    }
+    $i=0; 
+    //print_r($rows);   
+    foreach($rows as $row){ 
+        //check to see if the node already exists
+        $count=db_query("SELECT COUNT(*) FROM  {field_data_field_regnews_artical_id} WHERE field_regnews_artical_id_value=:articleid",array(':articleid'=>$row['ID']))->fetchColumn();
+        if(!$count){
+            $node=new stdClass();
+            $node->type='regulatory_news';
+            $node->title=$row['title'];
+            $node->body['und'][0]['value']=$row['body'];
+            $node->body['und'][0]['format']='full_html';
+            $node->field_regnews_publish_date['und'][0]['value']=substr($row['date'],0,4).'-'.substr($row['date'],4,2).'-'.substr($row['date'],6,2).' '.$row['time'];
+            $node->field_regnews_publish_date['und'][0]['timezone']='Europe/London';
+            $node->field_regnews_publish_date['und'][0]['timezone_db']='Europe/London';
+            $node->field_regnews_publish_date['und'][0]['date_type']='datetime';
+            $node->field_regnews_category['und'][0]['value']=$row['category_id'];
+            $node->field_regnews_artical_id['und'][0]['value']=$row['ID'];
+            $node->field_regnews_article_status['und']['0']['value']=$row['status'];
+            $node->status=1;
+            $node->language='und';
+            $node->uid=1;
+            node_save($node);
+            $i++;        }
+    }
+   return $i.' news articles added';
+}
+
+function regnews_show($nid){
+    node_load($nid);
+    if($node->type=='regulatory_news') print $node->bodybody['und'][0]['value'];
+    else return 'Page Not Found';
+}

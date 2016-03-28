@@ -1,0 +1,1491 @@
+<?php
+
+function shareserver_connect_menu(){
+    $items = array();
+    $items['historic-listing'] = array(
+        'title' => 'Historic listing page',
+        'page callback' => 'shareprice_connect_historical_shares_page',
+        'access arguments' => array('view share detail'),
+        'type' => MENU_CALLBACK,
+    );
+    $items['historic-available-fields'] = array(
+        'title' => 'Available Fields',
+        'page callback' => 'shareserver_connect_show_historic_avail_fields',
+        'access arguments' => array('admin view share detail'),
+        'type' => MENU_CALLBACK,
+    );
+    $items['available-fields'] = array(
+        'title' => 'Available Fields',
+        'page callback' => 'shareserver_connect_show_avail_fields',
+        'access arguments' => array('admin view share detail'),
+        'type' => MENU_CALLBACK,
+    );
+    $items['share-price-graph-content'] = array(
+        'title' => 'Graph Content',
+        'page callback' => 'shareprice_graph_content',
+        'access arguments' => array('view share detail'),
+        'type' => MENU_CALLBACK,
+    );
+    $items['share-price-json'] = array(
+        'title' => 'JSON Shareprice',
+        'page callback' => '_shareprice_summary_json',
+        'access arguments' => array('view share detail'),
+        'type' => MENU_CALLBACK,
+    );
+    $items['share-price-graph'] = array(
+        'title' => 'Share Price Chart',
+        'page callback' => 'shareserver_connect_display_graph',
+        'access arguments' => array('view share detail'),
+        'type' => MENU_CALLBACK,
+    );
+    $items['admin/settings/shareserver'] = array(
+    'title' => 'Share Feed settings',
+    'description' => 'Configure the share feed page.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('shareserver_connect_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+  );
+    return $items;
+    
+}
+
+function shareserver_connect_permission() {
+  return array(
+    'view share detail' => array(
+      'title' => t('View Share Detail'),
+      'description' => t('Access all the share details'),
+    ),
+    'admin view share detail' => array(
+      'title' => t('Administer Share Detail'),
+      'description' => t('Access all the share details'),
+    )
+  );
+}
+
+//connects to the shareserver database and executes queries
+function shareserver_connect_retrieve_all_fields($ISIN,$BC){
+    $link=_shareserver_connect_db_open();
+    //retrieve the list of all fields for that 
+    $result=mysql_query("SELECT valor,bc,currency FROM {shareserver_instruments} WHERE ISIN='".$ISIN."' AND BC='".$BC."'",$link);
+    $lookup=mysql_fetch_object($result);
+    $lookupstring=$lookup['valor'].','.$lookup['bc'].','.$lookup['currency'];
+    $result=mysql_query("SELECT field,pricetime,s,td,v,z,y,n,b FROM main_shareserver_listing_field WHERE lookup='".$lookupstring."' GROUP BY field DESC");
+    while($object=mysql_fetch_object($result)){
+        $output['fields'][]=$object;
+    }
+    _shareserver_connect_db_close($link);
+    return $output;
+}
+
+function shareserver_connect_currency($ISIN,$BC){
+    $link=_shareserver_connect_db_open();
+    $currencycode=mysql_result(mysql_query("SELECT currency FROM main_shareserver_instruments WHERE ISIN='".$ISIN."' AND BC='".$BC."'",$link),0);
+    return $currencycode;
+}
+
+function shareserver_connect_get_historical($ISIN,$BC,$date_from,$date_to){
+  //  print($ISIN.$BC.$date_from.$date_to.print_r($fields,TRUE));
+    $output=array();
+    $i=0;  
+    $link=_shareserver_connect_db_open();
+    $result=mysql_query("SELECT valor,bc,currency FROM main_shareserver_instruments WHERE ISIN='".$ISIN."' AND BC='".$BC."'",$link);
+    $lookup=mysql_fetch_assoc($result);
+    //select each day that needs to be retrieved
+    $lookupstring=$lookup['valor'].','.$lookup['bc'].','.$lookup['currency'];
+    $result=mysql_query("SELECT * FROM main_shareserver_historic_listing WHERE lookup='".$lookupstring."' AND pricetime>='".$date_from."' AND pricetime<='".$date_to."' ORDER BY pricetime ASC");
+    
+    while($temprow=mysql_fetch_assoc($result)){
+        $output[]=$temprow;
+    }  
+    _shareserver_connect_db_close($link);
+    return $output;
+}
+
+
+function shareserver_connect_retrieve_fields($ISIN,$BC,$fields){
+    $i=0;  
+    $fieldlist='';  
+    $output=array();
+    foreach($fields as $field){
+        if($i!=0) $fieldlist.=' OR ';
+        $fieldlist.="field='".$field."'";
+        $i++;
+    }
+   
+    $link=_shareserver_connect_db_open();
+    //retrieve lookup  
+    $result=mysql_query("SELECT valor,bc,currency FROM main_shareserver_instruments WHERE ISIN='".$ISIN."' AND BC='".$BC."'",$link);
+    $lookup=mysql_fetch_assoc($result);
+    $lookupstring=$lookup['valor'].','.$lookup['bc'].','.$lookup['currency'];
+   // watchdog('notice',print_r("SELECT field,pricetime,s,td,v,z,y,n,b FROM main_shareserver_listing_field WHERE lookup='".$lookupstring."' AND (".$fieldlist.") GROUP BY field DESC",TRUE));
+    
+        $result=mysql_query("SELECT field,pricetime,s,td,v,z,y,n,b FROM main_shareserver_listing_field WHERE lookup='".$lookupstring."' AND (".$fieldlist.") GROUP BY field DESC");
+    while($object=mysql_fetch_object($result)){
+        $output['fields'][$object->field]=$object;
+    }
+   // watchdog('notice',print_r($output,TRUE));
+    _shareserver_connect_db_close($link);
+    return $output;
+}
+
+function shareserver_connect_retrieve_historic_close($ISIN,$BC,$date){
+    $i=0;  
+    $fieldlist='';  
+    $output=array();
+    //standardise the date()
+    $date=date('Y-m-d',strtotime($date));
+    $link=_shareserver_connect_db_open();
+    //retrieve lookup  
+    $result=mysql_query("SELECT valor,bc,currency FROM main_shareserver_instruments WHERE ISIN='".$ISIN."' AND BC='".$BC."'",$link);
+    $lookup=mysql_fetch_assoc($result);
+    $lookupstring=$lookup['valor'].','.$lookup['bc'].','.$lookup['currency'];
+   // watchdog('historic',"SELECT 3_1 FROM main_shareserver_historic_listing WHERE pricetime<='".$date."' AND lookup='".$lookupstring."' ORDER BY pricetime DESC LIMIT 0,1");
+    $result=mysql_query("SELECT 3_1 FROM main_shareserver_historic_listing WHERE pricetime='".$date."' AND lookup='".$lookupstring."'",$link);
+      //  print("SELECT field,pricetime,lookup,value FROM main_shareserver_historic_listing_fields WHERE pricetime='".$date['pricetime']."' AND lookup='".$lookupstring."' GROUP BY field DESC");
+    $price=mysql_fetch_assoc($result);
+    // watchdog('historic',"SELECT 3_1 FROM main_shareserver_historic_listing WHERE pricetime='".$date."' AND lookup='".$lookupstring."'"." result ".$price->value);
+    _shareserver_connect_db_close($link);
+    return $price['3_1'];
+}
+
+
+function shareserver_connect_show_available_for_ISIN($ISIN,$BC){
+       $link=_shareserver_connect_db_open();
+    //retrieve lookup  
+    $result=mysql_query("SELECT valor,bc,currency FROM main_shareserver_instruments WHERE ISIN='".$ISIN."' AND BC='".$BC."'",$link);
+    $lookup=mysql_fetch_assoc($result);
+    $lookupstring=$lookup['valor'].','.$lookup['bc'].','.$lookup['currency'];
+    
+        $result=mysql_query("SELECT field,pricetime,s,td,v,z,y,n,b FROM main_shareserver_listing_field WHERE lookup='".$lookupstring."' GROUP BY field DESC");
+    while($object=mysql_fetch_object($result)){
+        //lookup the fireld name
+        $field_details=mysql_fetch_object(mysql_query("SELECT field,description,shortname FROM main_shareserver_all_fields WHERE field='".$object->field."'"));
+        $output.=$field_details->field." ".$field_details->shortname." ".$field_details->description." ".$object->v."<br />";
+        
+        //$output['fields'][$object->field]=$object;
+    }
+    _shareserver_connect_db_close($link);
+    return $output;
+}
+
+function shareserver_connect_last_5_trades($ISIN,$BC){
+     $link=_shareserver_connect_db_open();
+     $result=mysql_query("SELECT valor,bc,currency FROM main_shareserver_instruments WHERE ISIN='".$ISIN."' AND BC='".$BC."'",$link);   
+     $lookup=mysql_fetch_assoc($result);
+     $lookupstring=$lookup['valor'].','.$lookup['bc'].','.$lookup['currency'];
+     $lasttraderesult=mysql_query("SELECT `tradetime`,  `tradenumber`, `value`, `z`, `y`, `n`, `b` FROM `main_shareserver_trades` WHERE lookup='".$lookupstring."' ORDER BY tradetime DESC LIMIT 0,5",$link);
+        while($lasttrade=mysql_fetch_assoc($lasttraderesult)){
+            $output['last5'][]=$lasttrade;
+        }
+     _shareserver_connect_db_close($link);
+     return $output;  
+}
+
+//helper fucntion opens the db link flags any errors returns the resource
+function _shareserver_connect_db_open(){
+    $server1='176.34.119.50';
+    $server2='176.34.119.50';
+    $link = mysql_connect($server1.':3306', 'shareserver', 'Glob4l3digit4l');
+    if (!$link) {
+        watchdog('shareserver_connect error',$server1.' failed to connect');
+        $link = mysql_connect($server2.':3306','shareserver', 'Glob4l3digit4l');
+        if(!$link)  {
+            watchdog('shareserver_connect error',$server2.' failed to connect returning FALSE');
+            //fire off some alarms
+            return FALSE;
+        }
+    }
+    mysql_select_db('g3dstandard',$link);
+    return $link;
+    
+}
+
+
+function _shareserver_connect_db_close($link){
+    mysql_close($link);
+}
+
+/***
+ * outputs a form with date options
+***/
+
+function shareserver_connect_block_info(){
+  $blocks['share_price'] = array(
+    'info' => t('Latest Share Price'), 
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['share_price_summary'] = array(
+    'info' => t('Share Price Summary with Volume'), 
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['share_price_table'] = array(
+    'info' => t('Share Price Table'), 
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['share_price_last_5_trades'] = array(
+    'info' => t('Last 5 Trades'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['share_price_graph'] = array(
+    'info' => t('Share Price Graph'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['share_price_historical'] = array(
+    'info' => t('Share Price Historical Lookup'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  $blocks['share_price_myshares'] = array(
+    'info' => t('Share Price Calculate Share Value'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  return $blocks;
+}
+
+function shareserver_connect_block_configure($delta = '') {
+  // This example comes from node.module.
+   return array();
+}
+/***
+ * Hook Block Save
+ * saves the fields from the block config into variables
+ */
+function shareserver_connect_block_save($delta = '', $edit = array()) {
+    
+}
+
+function shareserver_connect_block_view($delta = '') {
+  switch ($delta) {
+    case 'share_price':
+      $block['subject'] = t('Share Price');
+      $block['content'] = _shareprice_content();
+      break;
+    case 'share_price_summary':
+      $block['subject'] = t('Share Price Summary');
+      $block['content'] = _shareprice_summary();
+      break;  
+    case 'share_price_graph':
+      $block['subject'] = t('Share Price Graph');
+      $block['content'] = shareserver_connect_display_graph_iframe();
+      break;
+    case 'share_price_last_5_trades':
+      $block['subject'] = t('Share Price Last 5 Trades');
+      $block['content'] = _shareprice_last_5_content();
+      break;  
+    case 'share_price_table':
+      $block['subject'] = t('Share Price Table');
+      $block['content'] = _shareprice_table_content();
+      break;
+    case 'share_price_historical':
+      $block['subject'] = t('Share Price Historical');
+      $block['content'] = drupal_get_form('shareserver_connect_historical_form');
+      break;
+   case 'share_price_myshares':
+      $block['subject'] = t('Share Price My Share Value');
+      $block['content'] = shareserver_connect_myshares_content();
+      break;
+  }
+  return $block;
+}
+
+
+function _shareprice_content(){
+    //display the shareprice and the change price
+    $ISIN=variable_get('share_price_ISIN');
+    $BC=variable_get('share_price_BC');
+    if(!$ISIN OR !$BC) return('Please configure the ISIN and BC');
+    $currency=variable_get('share_price_currency');
+    $currencycode=variable_get('share_price_currency_code');
+    $fields[]='1,0,1';
+    $fields[]='33,538,1';
+    $fieldresult=shareserver_connect_retrieve_fields($ISIN,$BC,$fields);
+     return("<div class='shareprice'><a href='/investors/share-price'><span class='shareprice-currency-symbol'>".$currency."</span>".(round($fieldresult['fields']['1,0,1']->v,2))."<span class='shareprice-currency'>".$currencycode."</span></a></div>
+    <div class='shareprice-change'>".((isset($fieldresult['fields']['33,538,1']->v) && $fieldresult['fields']['33,538,1']->v!=0)?integer_sign(round($fieldresult['fields']['33,538,1']->v,2)):'0.00')."%</div><div class='shareprice-disclaimer clearfix'>Delayed by at least 15 mins</div>");
+}   
+
+function _shareprice_summary(){
+    //display the shareprice and the change price
+    $ISIN=variable_get('share_price_ISIN');
+    $BC=variable_get('share_price_BC');
+    if(!$ISIN OR !$BC) return('Please configure the ISIN and BC');
+    $currency=variable_get('share_price_currency');
+    $currencycode=variable_get('share_price_currency_code');
+    $fields[]='1,0,1';
+    $fields[]='33,538,1';
+    $fields[]='14,133,1';
+    $fieldresult=shareserver_connect_retrieve_fields($ISIN,$BC,$fields);
+    return("<div class='shareprice-summary'><a href='/investors/share-price'><span class='shareprice-currency-symbol'>".$currency."</span>".(round($fieldresult['fields']['1,0,1']->v,2))."<span class='shareprice-currency'>".$currencycode."</span></a></div>
+    <table class='shareprice-summary'><tr><th>Change(%)</th><td><div class='shareprice-summary-change-percent'>".((isset($fieldresult['fields']['33,538,1']->v))?integer_sign(round($fieldresult['fields']['33,538,1']->v,2)):'--')."%</td></tr>
+    <tr><th>Day Volume</th><td><div class='shareprice-summary-change-amount'>".((isset($fieldresult['fields']['14,133,1']->v))?round($fieldresult['fields']['14,133,1']->v,2):'--')."</div></td></tr></table>
+    <div class='shareprice-disclaimer clearfix'>Delayed by at least 15 mins</div>");
+
+}
+
+/***
+ * prints the shareprice and summary as json for the pugpig module to read
+ */
+
+function _shareprice_summary_json(){
+    //display the shareprice and the change price
+    $ISIN=variable_get('share_price_ISIN');
+    $BC=variable_get('share_price_BC');
+    if(!$ISIN OR !$BC) return('Please configure the ISIN and BC');
+    $currency=variable_get('share_price_currency');
+    $currencycode=variable_get('share_price_currency_code');
+    $fields[]='1,0,1';
+    $fields[]='33,538,1';
+    $fields[]='33,537,1';
+    $fieldresult=shareserver_connect_retrieve_fields($ISIN,$BC,$fields);
+    $shortname=variable_get('share_price_short_name', '');
+    print('jsonpCallback(
+        {
+     "'.$shortname.'":{
+     "code":"'.$shortname.'",
+     "price":"'.$fieldresult['fields']['1,0,1']->v.'",
+     "netchange":"'.$fieldresult['fields']['33,537,1']->v.'",
+         "pctchange":"'.$fieldresult['fields']['33,538,1']->v.'"
+         }
+    }
+    )');
+
+}
+
+function _shareprice_last_5_content($ISIN='',$BC=''){
+    if($ISIN=='') $ISIN=variable_get('share_price_ISIN');
+    if($BC=='') $BC=variable_get('share_price_BC');
+    if(!$ISIN OR !$BC) return('Please configure the ISIN and BC');
+    $trades=shareserver_connect_last_5_trades($ISIN,$BC);
+    $i=0;
+    $output="<table class='last-5-trades'><thead><tr><th class='first'>Trade</th><th>Price</th><th>Volume</th><th>Value</th><th>Time and Date</th></tr></thead><tbody>";
+    foreach($trades['last5'] as $trade){
+
+        $output.="<tr><td class='first'>".($i+1)."</td><td>".$trade['value']."</td><td>".$trade['z']."</td><td>".(floor(($trade['value']*$trade['z'])*100)/100)."</td><td>".$trade['tradetime']."</td></tr>";
+        $i++;
+    }
+    $output.="</tbody></table>";
+    $output.="<div class='shareprice-disclaimer clearfix'>Delayed by at least 15 mins</div>";
+    $output.="<div class=\"irdisclaimer\">
+    <div class=\"graphoptleft spsmall\">
+    Data provided by <a href=\"http://www.global3digital.com/g3d/irfeed/tk_disclaimer.htm\" target=\"_blank\" title=\"SIX Telekurs: link will open in new window\" onclick=\"window.open('http://www.global3digital.com/g3d/irfeed/tk_disclaimer.htm', 'disclaimer', 'toolbar=no, location=no, status=yes, menubar=no, scrollbars=no, resizable=no, width=500, height=350'); return false\">SIX Telekurs</a>
+    </div>
+    <div class=\"graphoptright spsmall\">
+    Delivered by <a href=\"http://www.global3digital.com\" target=\"_blank\" title=\"global3digital: link will open in new window\">global3digital</a>
+    </div>
+    </div>";
+    
+    return $output;
+}
+
+function _shareprice_table_content($ISIN='',$BC=''){
+           
+    if($ISIN=='') $ISIN=variable_get('share_price_ISIN');
+    if($BC=='') $BC=variable_get('share_price_BC');
+    
+    $fields = array('1,0,1','33,107,1','33,2,1','33,3,1','14,6,1','2,0,1','4,0,1','5,0,1','3,1,2','16,0,0','17,0,0','33,839,2','14,133,1','33,538,1','33,537,1');
+    $fieldresult=shareserver_connect_retrieve_fields($ISIN,$BC,$fields);
+   // print_r($fieldresult);
+    $output='';
+    $output.="<table class='shareprice-table'>
+    <tr><th>Price</th><td>".(isset($fieldresult['fields']['1,0,1']->v)?number_format($fieldresult['fields']['1,0,1']->v,4):'--')."</td><th>Today's Open</th><td>".(((isset($fieldresult['fields']['2,0,1']->v) && $fieldresult['fields']['2,0,1']->v!=0))?number_format($fieldresult['fields']['2,0,1']->v,4):'--')."</td></tr>
+    <tr><th>Change</th><td>".(isset($fieldresult['fields']['33,537,1']->v)?integer_sign($fieldresult['fields']['33,537,1']->v):integer_sign(number_format($fieldresult['fields']['33,537,1']->v),4))."</td><th>Today's High</th><td>".((isset($fieldresult['fields']['4,0,1']->v)&& $fieldresult['fields']['4,0,1']->v!=0)?number_format($fieldresult['fields']['4,0,1']->v,4):'--')."</td></tr>
+    <tr><th>% Change</th><td>".(isset($fieldresult['fields']['33,538,1']->v)?integer_sign(number_format($fieldresult['fields']['33,538,1']->v,2)):'0.00')."</td><th>Today's Low</th><td>".((isset($fieldresult['fields']['5,0,1']->v)&&$fieldresult['fields']['5,0,1']->v>0)?number_format($fieldresult['fields']['5,0,1']->v,4):'--')."</td></tr>
+    <tr><th>Bid</th><td>".((isset($fieldresult['fields']['33,2,1']->v)&&$fieldresult['fields']['33,2,1']->v>0)?number_format($fieldresult['fields']['33,2,1']->v,4):'--')."</td><th>Previous Close</th><td>".(isset($fieldresult['fields']['3,1,2']->v)?number_format($fieldresult['fields']['3,1,2']->v,4):'--')."</td></tr>
+    <tr><th>Ask</th><td>".((isset($fieldresult['fields']['33,3,1']->v)&&$fieldresult['fields']['33,3,1']->v>0)?number_format($fieldresult['fields']['33,3,1']->v,4):'--')."</td><th>52 Week High</th><td>".(isset($fieldresult['fields']['16,0,0']->v)?number_format($fieldresult['fields']['16,0,0']->v,4):'--')."</td></tr>
+    <tr><th>Volume</th><td>".(isset($fieldresult['fields']['14,133,1']->v)?number_format($fieldresult['fields']['14,133,1']->v,0):'--')."</td><th>52 Week Low</th><td>".(isset($fieldresult['fields']['17,0,0']->v)?number_format($fieldresult['fields']['17,0,0']->v,4):'--')."</td></tr>
+    </table>";
+    $output.="<div class='shareprice-disclaimer clearfix'>Delayed by at least 15 mins</div>";
+    $output.="<div class=\"irdisclaimer\">
+    <div class=\"graphoptleft spsmall\">
+    Data provided by <a href=\"http://www.global3digital.com/g3d/irfeed/tk_disclaimer.htm\" target=\"_blank\" title=\"SIX Telekurs: link will open in new window\" onclick=\"window.open('http://www.global3digital.com/g3d/irfeed/tk_disclaimer.htm', 'disclaimer', 'toolbar=no, location=no, status=yes, menubar=no, scrollbars=no, resizable=no, width=500, height=350'); return false\">SIX Telekurs</a>
+    </div>
+    <div class=\"graphoptright spsmall\">
+    Delivered by <a href=\"http://www.global3digital.com\" target=\"_blank\" title=\"global3digital: link will open in new window\">global3digital</a>
+    </div>
+    </div>";
+      return $output;
+
+}
+//used to display a positive or negative symbol of an int
+function integer_sign($number){
+    if($number>=0) return '+'.$number;
+    else return ''.$number;
+}
+/***
+ * create a page with a table in it of result or a csv file
+ */
+function shareprice_connect_historical_shares_page(){
+    $date_from=arg(1);
+    $date_to=arg(2);
+    $ISIN=variable_get('share_price_ISIN');
+    $BC=variable_get('share_price_BC');
+    $CSV=arg(3);
+    $fields=array('2,1','3,1','4,1','5,1','14,16');
+    $output='';
+    $results=shareserver_connect_get_historical($ISIN,$BC,$date_from,$date_to,$fields); 
+    if(!$CSV){
+        $output.="<style>body{font-family:arial;}table{width:500px;}</style><html><body>";
+        $output.="<h2 class='historical-shares'>Pricing From ".date("d/m/Y",strtotime($date_from))." To ".date("d/m/Y",strtotime($date_to))."</h2>\n<table class='historical'>
+        <thead><tr><th class='first'>Date</th><th>Open</th><th>Close</th><th>High</th><th>Low</th><th>Vol</th><tr></thead><tbody>";
+        foreach($results as $date => $fields){
+        $output.="<tr><td>".date('d/m/Y',strtotime($fields['pricetime']))."</td><td>".($fields['2_1']?$fields['2_1']:'--')."</td><td>".($fields['3_1']?$fields['3_1']:'--')."</td><td>".($fields['4_1']?$fields['4_1']:'--')."</td><td>".($fields['5_1']?$fields['5_1']:'--')."</td><td>".($fields['14_16']?$fields['14_16']:'--')."</td></tr>";
+        }
+        $output.="</tbody></table></body></html>";
+        print $output;
+    }else{
+        //$output a csv
+        header("Content-type: text/csv");  
+        header("Cache-Control: no-store, no-cache");  
+        header('Content-Disposition: attachment; filename="data.csv"'); 
+        $outstream = fopen("php://output",'w');  
+        $link=_shareserver_connect_db_open();
+        $result=mysql_query("SELECT valor,bc,currency FROM main_shareserver_instruments WHERE ISIN='".$ISIN."' AND BC='".$BC."'",$link);
+        $lookup=mysql_fetch_assoc($result);
+        $row=array('Date','Open','Close','High','Low','Vol');
+        fputcsv($outstream, $row, ',', '"');
+        foreach($results as $date => $fields){
+            $row=array(date('d/m/Y',strtotime($fields['pricetime'])),($fields['2_1']?$fields['2_1']:'--'),($fields['3_1']?$fields['3_1']:'--'),($fields['4_1']?$fields['4_1']:'--'),($fields['5_1']?$fields['5_1']:'--'),($fields['14_16']?$fields['14_16']:'--'));
+            fputcsv($outstream, $row, ',', '"');  
+        }  
+        fclose($outstream);  
+    }
+}
+
+function trimfloat($val, $pre = 2)
+{
+    return (int) ($val * pow(10, $pre)) / pow(10, $pre);
+}
+
+function shareserver_connect_myshares_content(){
+    $output="<h3>Calculate the value of your holding</h3>".drupal_render(drupal_get_form('shareserver_connect_myshares_form'));
+    $output.="<h3>Calculate the change in the value of your holding</h3>".drupal_render(drupal_get_form('shareserver_connect_myshares_change_form'));
+    $output.="<h3>Share Price Look-Up</h3>".drupal_render(drupal_get_form('shareserver_connect_myshares_historic_lookup_form'));
+    $output.="<div class=\"irdisclaimer\">
+    <div class=\"graphoptleft spsmall\">
+    Data provided by <a href=\"http://www.global3digital.com/g3d/irfeed/tk_disclaimer.htm\" target=\"_blank\" title=\"SIX Telekurs: link will open in new window\" onclick=\"window.open('http://www.global3digital.com/g3d/irfeed/tk_disclaimer.htm', 'disclaimer', 'toolbar=no, location=no, status=yes, menubar=no, scrollbars=no, resizable=no, width=500, height=350'); return false\">SIX Telekurs</a>
+    </div>
+    <div class=\"graphoptright spsmall\">
+    Delivered by <a href=\"http://www.global3digital.com\" target=\"_blank\" title=\"global3digital: link will open in new window\">global3digital</a>
+    </div>
+</div>";
+    return $output;
+}
+
+
+/**** Form for historic lookup ****/
+function shareserver_connect_historical_form($form, &$form_state) {
+  $form['datefrom'] = array(
+    '#type' => 'date',
+    '#title' => t('Date From'),
+    '#default_value' =>  array('year' => date('Y',strtotime('- 1 month')), 'month' => date('n',strtotime('- 1 month')), 'day'
+=> date('d',strtotime('- 1 month'))),
+  );
+  $form['dateto'] = array(
+    '#type' => 'date',
+    '#title' => t('Date To'),
+      '#default_value' =>  array('year' => date('Y',strtotime('- 1 day')), 'month' => date('n',strtotime('- 1 day')), 'day'
+=> date('d',strtotime('- 1 day'))),
+  );
+  $form['fileformat'] = array(
+    '#type' => 'select',
+    '#options' => array('HTML','CSV'),
+    '#title' => t('Download Type')
+  );    
+  $form['#attributes'] = array('target'=> '_blank');
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  return $form;
+}
+function shareserver_connect_historical_form_validate($form, &$form_state) {
+   //check that from is before 2
+   
+}
+function shareserver_connect_historical_form_submit($form, &$form_state) {
+  // Submission logic.
+  $datefrom=$form['datefrom']['#value']['year']."-".$form['datefrom']['#value']['month']."-".$form['datefrom']['#value']['day'];
+  $dateto=$form['dateto']['#value']['year']."-".$form['dateto']['#value']['month']."-".$form['dateto']['#value']['day'];
+  drupal_goto('historic-listing/'.$datefrom.'/'.$dateto.'/'.$form['fileformat']['#value']);
+}
+
+
+function shareserver_connect_avail_fields_historic($ISIN,$BC){
+     $link=_shareserver_connect_db_open();    
+     $result=mysql_query("SELECT valor,bc,currency FROM main_shareserver_instruments WHERE ISIN='".$ISIN."' AND BC='".$BC."'",$link);   
+     $lookup=mysql_fetch_assoc($result);
+     $lookupstring=$lookup['valor'].','.$lookup['bc'].','.$lookup['currency'];
+    $fieldsresult=mysql_query("SELECT DISTINCT field FROM main_shareserver_historic_listing_fields WHERE lookup='".$lookupstring."'",$link);
+    //loop throught hte field results to 
+    
+    $output="<table class='share-listing'>";
+    while($field=mysql_fetch_object($fieldsresult)){
+        $descresult=mysql_query("SELECT description,shortname FROM main_shareserver_all_historic_fields WHERE field='".$field->field."'");
+        $descobject=mysql_fetch_object($descresult);
+        //$valobject=mysql_query("SELECT v,pricetime FROM ");
+        $output.="<tr><td>".($field->field?$field->field:'')."</td><td>".($descobject->description?$descobject->description:'')."</td><td>".($descobject->shortname?$descobject->shortname:'')."</td></tr>";
+        
+    }
+    $output.="</table>";
+     _shareserver_connect_db_close($link);
+ 
+    return $output;
+}
+
+function shareserver_connect_avail_fields($ISIN,$BC){
+    $link=_shareserver_connect_db_open();    
+    $result=mysql_query("SELECT valor,bc,currency FROM main_shareserver_instruments WHERE ISIN='".$ISIN."' AND BC='".$BC."'",$link);   
+    $lookup=mysql_fetch_assoc($result);
+    $lookupstring=$lookup['valor'].','.$lookup['bc'].','.$lookup['currency'];
+    $fieldsresult=mysql_query("SELECT DISTINCT field FROM main_shareserver_listing_field WHERE lookup='".$lookupstring."'",$link);
+    //loop throught hte field results to 
+    
+    $output="<table class='share-listing'>";
+    $fieldsarray=array();
+     while($field=mysql_fetch_object($fieldsresult)){
+         $fieldsarray[]=$field->field;
+    }
+    
+    $current=shareserver_connect_retrieve_fields($ISIN,$BC,$fieldsarray);
+   // print_r($current['fields']);
+    $link=_shareserver_connect_db_open();    
+    
+    $fieldsresult=mysql_query("SELECT DISTINCT field FROM main_shareserver_listing_field WHERE lookup='".$lookupstring."'",$link);
+    while($field=mysql_fetch_object($fieldsresult)){
+        $descresult=mysql_query("SELECT description,shortname FROM main_shareserver_all_fields WHERE field='".$field->field."'");
+        $descobject=mysql_fetch_object($descresult);
+
+        $output.="<tr><td>".$field->field."</td><td>".$descobject->description."</td><td>".$descobject->shortname."</td><td>".$current['fields'][$field->field]->v."</td><td>".$current['fields'][$field->field]->pricetime."</td></tr>";
+    }
+    $output.="</table>";
+      _shareserver_connect_db_close($link);
+ 
+    return $output;
+}
+
+function shareserver_connect_show_historic_avail_fields(){
+    $ISIN=variable_get('share_price_ISIN');
+    $BC=variable_get('share_price_BC');
+    return "<h3>Historic Fields</h3>".shareserver_connect_avail_fields_historic($ISIN,$BC)."<h3>Current Fields</h3>".shareserver_connect_avail_fields($ISIN,$BC);
+    
+}
+function shareserver_connect_show_avail_fields(){
+    $ISIN=variable_get('share_price_ISIN');
+    $BC=variable_get('share_price_BC');
+    return "<h3>Available Fields</h3>".shareserver_connect_avail_fields($ISIN,$BC)."<h3>Current Fields</h3>".shareserver_connect_avail_fields($ISIN,$BC);   
+}
+
+
+/*** share price single page with quicktabs enables***/
+
+function _shareprice_value_holding_content($ISIN,$BC){
+    $output="";
+    return $output;    
+}
+
+
+/**** Calculator ****/
+
+function shareserver_connect_myshares_form() {
+  
+  $ISIN=variable_get('share_price_ISIN');
+  $BC=variable_get('share_price_BC');
+  $currency=variable_get('share_price_currency');
+      
+  $fields[]='1,0,1';
+  if($ISIN) $fieldresult=shareserver_connect_retrieve_fields($ISIN,$BC,$fields);
+  $form=array();
+  $form['currentvalue'] = array(
+    '#type' => 'markup',
+    '#markup' => t('<label>To calculate the value of your holding based on a current share price of</label><span class="sharevalue">'.$currency.number_format($fieldresult['fields']['1,0,1']->v,2).'</span>')
+  );
+  $form['numberofshares'] = array(
+    '#type' => 'textfield',
+    '#size' => '5',
+    '#title' => t('Number of shares owned')
+  ); 
+ /* $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#ajax' => array(
+                'callback' => 'shareserver_connect_myshares_form_submit',
+                'wrapper' => 'shareserver-connect-myshares-form',
+                'effect' => 'fade',
+                'name' => 'submit',
+                ),
+  );*/
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Calculate'),
+  );
+  //$form['#action'] ='/investors/share-price?qt-investor_relations=4#qt-investor_relations';
+ $form['#action'] ='/investors/share-price?qt-investor_relations=4&qt-summary=4#qt-summary';
+
+   $form['results'] = array(
+    '#type' => 'markup'
+  );
+ 
+  return $form;
+}
+
+function shareserver_connect_myshares_form_validate(&$form, &$form_state) {        
+  $ISIN=variable_get('share_price_ISIN');
+  $BC=variable_get('share_price_BC');
+  $currency=variable_get('share_price_currency');
+  $fields[]='1,0,1';
+  if($ISIN) $fieldresult=shareserver_connect_retrieve_fields($ISIN,$BC,$fields);
+    if(!is_numeric($form['numberofshares']['#value'])) form_set_error('shares','The value entered must be a number');
+    //check its an integer value
+    $form['results']['#markup'] =  '<div class="sharevalue" style="clear:both"><label>Value of your holding</label><span class="sharevalue">'.$currency.number_format(($fieldresult['fields']['1,0,1']->v*$form_state['values']['numberofshares']),2).'</span></div>';
+  form_set_error('submit');
+}
+
+function shareserver_connect_myshares_form_submit($form, &$form_state) {
+  if (form_get_errors()) {
+    return $form;
+  }
+    
+} 
+
+/*** Historic price calculator ***/
+
+function shareserver_connect_myshares_change_form() {
+    
+  $currency=variable_get('share_price_currency');  
+  $form=array();
+  $form['dateofpurchase'] = array(
+    '#type' => 'date',
+    '#title' => t('Select the date of purchase'),
+    '#default_value' =>  array('year' => date('Y',strtotime('- 1 year')), 'month' => date('n',strtotime('- 1 year')), 'day'
+=> date('d',strtotime('- 1 year'))),
+    );
+  $form['historicvalue'] = array(
+    '#type' => 'textfield',
+    '#size' => '5',
+    '#title' => t("Enter the historic cost of your holding in £'s (eg: 1000)")
+  );   
+  $form['numberofshares'] = array(
+    '#prefix' => '<strong>OR</strong>',
+    '#type' => 'textfield',
+    '#size' => '5',
+    '#title' => t('Enter the number of shares that you own')
+  ); 
+  /*$form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#ajax' => array(
+                'callback' => 'shareserver_connect_myshares_change_form_submit',
+                'wrapper' => 'shareserver-connect-myshares-change-form',
+                'effect' => 'fade',
+                'name' => 'submit',
+                ),
+  );*/ 
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Calculate'),
+  );
+//  $form['#action'] ='/investors/share-price?qt-investor_relations=4#qt-investor_relations';
+  $form['#action'] ='/investors/share-price?qt-investor_relations=4&qt-summary=4#qt-summary';
+ 
+   $form['results'] = array(
+    '#type' => 'markup'
+  );
+ $form['#after_build'] = array('shareserver_connect_myshares_format_historic_lookup_date');
+  return $form;
+}
+
+/*** retrieve the historic share price for the period ***/
+function shareserver_connect_myshares_change_form_validate(&$form, &$form_state) {        
+  $ISIN=variable_get('share_price_ISIN');
+  $BC=variable_get('share_price_BC');
+  $currency=variable_get('share_price_currency');
+  $fields[]='1,0,1';
+  if($ISIN) $fieldresult=shareserver_connect_retrieve_fields($ISIN,$BC,$fields);
+  if($ISIN) $value=shareserver_connect_retrieve_historic_close($ISIN,$BC,$form_state['values']['dateofpurchase']['year'].'-'.$form_state['values']['dateofpurchase']['month'].'-'.$form_state['values']['dateofpurchase']['day']);
+    if(!is_numeric($form['numberofshares']['#value']) && !is_numeric($form['historicvalue']['#value'])) form_set_error('numberofshares','The value entered must be a number');
+    //check its an integer value
+    else {
+        if($value) {
+            if($form['historicvalue']['#value']){
+                $form['results']['#markup'] =  '<div class="sharevalue" style="clear:both"><label>Value of your holding</label><span class="sharevalue">'.$currency.number_format((($form_state['values']['historicvalue']/$value)*$fieldresult['fields']['1,0,1']->v),2).'</span></div>';
+            } else $form['results']['#markup'] =  '<div class="sharevalue" style="clear:both"><label>Value of your holding</label><span class="sharevalue">'.$currency.number_format(($value*$form_state['values']['numberofshares']),2).'</span></div>';
+        }
+        else $form['results']['#markup'] =  '<div class="sharevalue" style="clear:both"><label>Value of your holding</label><span class="sharevalue">Share Price is unavailable for that date</span></div>';
+    }
+  form_set_error('submit');
+  //drupal_goto('investors/share-price?qt-investor_relations=4#qt-investor_relations');
+}
+
+function shareserver_connect_myshares_change_form_submit($form, &$form_state) {
+  if (form_get_errors()) {
+    return $form;
+  }
+    
+} 
+
+
+/*** Historic price calculator ***/
+
+function shareserver_connect_myshares_historic_lookup_form() {
+  $currency=variable_get('share_price_currency');  
+  $form=array();
+  $form['dateofpurchase'] = array(
+    '#type' => 'date',
+    '#title' => t('Select the date of purchase'),
+      '#default_value' =>  array('year' => date('Y',strtotime('- 1 year')), 'month' => date('n',strtotime('- 1 year')), 'day'
+=> date('d',strtotime('- 1 year'))),
+    ); 
+ /* $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#ajax' => array(
+                'callback' => 'shareserver_connect_myshares_historic_lookup_form_submit',
+                'wrapper' => 'shareserver-connect-myshares-historic-lookup-form',
+                'effect' => 'fade',
+                'name' => 'submit',
+                ),
+  );*/
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Calculate'),
+  );
+ // $form['#action'] ='/investors/share-price?qt-investor_relations=4#qt-investor_relations';
+ $form['#action'] ='/investors/share-price?qt-investor_relations=4&qt-summary=4#qt-summary';
+ 
+   $form['hlresults'] = array(
+    '#type' => 'markup'
+  );
+ $form['#after_build'] = array('shareserver_connect_myshares_format_historic_lookup_date');
+  return $form;
+}
+
+
+function shareserver_connect_myshares_format_historic_lookup_date($form_element, &$form_state){
+    // We unset the current values
+    unset($form_element['dateofpurchase']['year']['#options']);
+
+    // Now we set the range we want
+    $max_age = date('Y') - 10; // 100 years ago
+    $min_age = date('Y'); // 7 years ago
+   
+    // Now we populate the array
+    $form_element['dateofpurchase']['year']['#options'] = array();
+    foreach (range($max_age, $min_age) as $year){
+        $form_element['dateofpurchase']['year']['#options'][$year] = $year;
+    }
+   
+    // We return our modified element
+    return $form_element;
+}
+
+/*** retrieve the historic share price for the period ***/
+function shareserver_connect_myshares_historic_lookup_form_validate(&$form, &$form_state) {        
+  $ISIN=variable_get('share_price_ISIN');
+  $BC=variable_get('share_price_BC');
+  $currency=variable_get('share_price_currency');
+  if($ISIN) $value=shareserver_connect_retrieve_historic_close($ISIN,$BC,$form_state['values']['dateofpurchase']['year'].'-'.$form_state['values']['dateofpurchase']['month'].'-'.$form_state['values']['dateofpurchase']['day']);
+  if($value) {
+       $form['hlresults']['#markup'] =  '<div class="sharevalue" style="clear:both"><label>Historic Share Price</label><span class="sharevalue">'.$currency.number_format($value,2).'</span></div>';
+   }
+  else $form['hlresults']['#markup'] =  '<div class="sharevalue" style="clear:both"><label>Historic Share Price</label><span class="sharevalue">Share Price is unavailable for that date</span></div>';
+    
+  form_set_error('submit');
+}
+
+function shareserver_connect_myshares_historic_lookup_form_submit($form, &$form_state) {
+  if (form_get_errors()) {
+    return $form;
+  }
+    
+} 
+
+/**** Admin settings ****/
+
+function shareserver_connect_admin_settings() {
+ 
+   $form['share_price_ISIN'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Primary ISIN'), 
+      '#default_value' => variable_get('share_price_ISIN', ''), 
+    );
+    $form['share_price_BC'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Primary BC'), 
+      '#default_value' => variable_get('share_price_BC', ''), 
+    );
+    $form['share_price_short_name'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Short Name'), 
+      '#default_value' => variable_get('share_price_short_name', ''), 
+    );
+    $form['share_price_long_name'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Long Name'), 
+      '#default_value' => variable_get('share_price_long_name', ''), 
+    );
+
+    $form['share_price_currency'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Currency Symbol'), 
+      '#default_value' => variable_get('share_price_currency', ''), 
+    );
+    $form['share_price_currency_code'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Currency Code e.g. GBP'), 
+      '#default_value' => variable_get('share_price_currency_code', ''), 
+    );
+    $form['share_price_units'] = array(
+      '#type' => 'checkbox', 
+      '#title' => t('Show in pence not pounds'), 
+      '#default_value' => variable_get('share_price_units', ''), 
+    );
+    $form['share_price_currency_code'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Currency Code e.g. GBP'), 
+      '#default_value' => variable_get('share_price_currency_code', ''), 
+    );    
+    $form['graph_logo'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('URL Logo For the Share Price Graph'), 
+      '#default_value' => variable_get('share_price_url', ''),
+    );
+    $form['comparators'] = array(
+        '#type' => 'fieldset', 
+        '#title' => t('Graph & Historical Comparators'), 
+        '#weight' => 5, 
+        '#collapsible' => TRUE, 
+        '#collapsed' => FALSE,
+    );
+    $form['comparators']['share_price_graph_c1_ISIN'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 1 ISIN'), 
+      '#default_value' => variable_get('share_price_graph_c1_ISIN', ''), 
+    );
+    $form['comparators']['share_price_graph_c1_BC'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 1 BC'), 
+      '#default_value' => variable_get('share_price_graph_c1_BC', ''), 
+    );
+    $form['comparators']['share_price_graph_c1_short_name'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 1 Short Name'), 
+      '#default_value' => variable_get('share_price_graph_c1_short_name', ''), 
+    );
+    $form['comparators']['share_price_graph_c1_long_name'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 1 Long Name'), 
+      '#default_value' => variable_get('share_price_graph_c1_long_name', ''), 
+    );
+    $form['comparators']['share_price_graph_c1_currency'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 1 Currency'), 
+      '#default_value' => variable_get('share_price_graph_c1_currency', ''), 
+    );
+    $form['comparators']['share_price_graph_c2_ISIN'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 2 ISIN'), 
+      '#default_value' => variable_get('share_price_graph_c2_ISIN', ''), 
+    );
+    $form['comparators']['share_price_graph_c2_BC'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 2 BC'), 
+      '#default_value' => variable_get('share_price_graph_c2_BC', ''), 
+    );
+    $form['comparators']['share_price_graph_c2_short_name'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 2 Short Name'), 
+      '#default_value' => variable_get('share_price_graph_c2_short_name', ''), 
+    );
+    $form['comparators']['share_price_graph_c2_long_name'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 2 Long Name'), 
+      '#default_value' => variable_get('share_price_graph_c2_long_name', ''), 
+    );
+    $form['comparators']['share_price_graph_c2_currency'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 2 Currency'), 
+      '#default_value' => variable_get('share_price_graph_c2_currency', ''), 
+    );
+    
+     $form['comparators']['share_price_graph_c3_ISIN'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 3 ISIN'), 
+      '#default_value' => variable_get('share_price_graph_c3_ISIN', ''), 
+    );
+    $form['comparators']['share_price_graph_c3_BC'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 3 BC'), 
+      '#default_value' => variable_get('share_price_graph_c3_BC', ''), 
+    );
+    $form['comparators']['share_price_graph_c3_short_name'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 3 Short Name'), 
+      '#default_value' => variable_get('share_price_graph_c3_short_name', ''), 
+    );
+    $form['comparators']['share_price_graph_c3_long_name'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 3 Long Name'), 
+      '#default_value' => variable_get('share_price_graph_c3_long_name', ''), 
+    );
+    $form['comparators']['share_price_graph_c3_currency'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 3 Currency'), 
+      '#default_value' => variable_get('share_price_graph_c3_currency', ''), 
+    );
+    
+     $form['comparators']['share_price_graph_c4_ISIN'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 4 ISIN'), 
+      '#default_value' => variable_get('share_price_graph_c4_ISIN', ''), 
+    );
+    $form['comparators']['share_price_graph_c4_BC'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 4 BC'), 
+      '#default_value' => variable_get('share_price_graph_c4_BC', ''), 
+    );
+    $form['comparators']['share_price_graph_c4_short_name'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 4 Short Name'), 
+      '#default_value' => variable_get('share_price_graph_c4_short_name', ''), 
+    );
+    $form['comparators']['share_price_graph_c4_long_name'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 4 Long Name'), 
+      '#default_value' => variable_get('share_price_graph_c4_long_name', ''), 
+    );
+    $form['comparators']['share_price_graph_c4_currency'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 4 Currency'), 
+      '#default_value' => variable_get('share_price_graph_c4_currency', ''), 
+    );
+     $form['comparators']['share_price_graph_c5_ISIN'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 5 ISIN'), 
+      '#default_value' => variable_get('share_price_graph_c5_ISIN', ''), 
+    );
+    $form['comparators']['share_price_graph_c5_BC'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 5 BC'), 
+      '#default_value' => variable_get('share_price_graph_c5_BC', ''), 
+    );
+    $form['comparators']['share_price_graph_c5_short_name'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 5 Short Name'), 
+      '#default_value' => variable_get('share_price_graph_c5_short_name', ''), 
+    );
+    $form['comparators']['share_price_graph_c5_long_name'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 5 Long Name'), 
+      '#default_value' => variable_get('share_price_graph_c5_long_name', ''), 
+    );
+    $form['comparators']['share_price_graph_c5_currency'] = array(
+      '#type' => 'textfield', 
+      '#title' => t('Comparator 5 Currency'), 
+      '#default_value' => variable_get('share_price_graph_c5_currency', ''), 
+    );
+  return system_settings_form($form);
+}
+
+
+function shareserver_connect_create_graph(){
+    //createa a csv file to feed to the graph
+}
+/***
+ * Creates a csv of all historic close prices for the provided data
+ */
+
+function shareprice_graph_content(){
+    $codes=arg(1);
+    $codesarray=explode(',',$codes);
+    $ISIN=$codesarray[0];
+    $BC=$codesarray[1];
+//     drupal_add_http_header('Content-Type', 'text/csv');
+//     drupal_add_http_header('Content-Disposition', 'attachment; filename="data.csv"');  
+    header("Content-type: text/csv");  
+    header("Cache-Control: no-store, no-cache");  
+    header('Content-Disposition: attachment; filename="data.csv"');  
+   
+       $outstream = fopen("php://output",'w');  
+    
+    $link=_shareserver_connect_db_open();
+    $result=mysql_query("SELECT valor,bc,currency FROM main_shareserver_instruments WHERE ISIN='".$ISIN."' AND BC='".$BC."'",$link);
+    $lookup=mysql_fetch_assoc($result);
+    //select each day that needs to be retrieved
+    //print("SELECT DISTINCT pricetime FROM main_shareserver_historic_listing_fields WHERE pricetime<'".$date_to."' AND pricetime>'".$date_from."' ORDER BY pricetime DESC ",$link);
+    $lookupstring=$lookup['valor'].','.$lookup['bc'].','.$lookup['currency'];
+    $test_data=array();
+    $result=mysql_query("SELECT pricetime,3_1,14_16 FROM main_shareserver_historic_listing WHERE lookup='".$lookupstring."' ORDER BY pricetime ASC");
+    while($entry=mysql_fetch_assoc($result)){
+        if($entry['14_16']) $volume=$entry['14_16']; else $volume=0;
+        if($entry['3_1']) {
+            if($entry['3_1']) $row=array(date('m/d/Y',strtotime($entry['pricetime'])),$entry['3_1'],$volume);
+            $test_data[]=$row;
+        }
+//        print($date['pricetime'].','.$object->value.'\n');
+        
+    }  
+    foreach( $test_data as $row )  
+    {
+ //       print_r($row);  
+        fputcsv($outstream, $row, ',', '"');  
+    }  
+  
+    fclose($outstream);  
+}
+
+function shareserver_connect_display_graph_iframe(){
+    return('<iframe frameborder="0" height="800px" width="100%" scrolling="no" src="/share-price-graph"></iframe>');
+}  
+ 
+function shareserver_connect_display_graph(){
+    
+    $codes=array();
+    $codes[]=array('ISIN'=>variable_get('share_price_ISIN', ''),'BC'=>variable_get('share_price_BC', ''),
+    'currency'=>variable_get('share_price_currency', ''),'shortname'=> variable_get('share_price_short_name', ''),
+    'longname'=> variable_get('share_price_long_name', ''));
+    for($i=1;$i<=5;$i++){
+        if(variable_get('share_price_graph_c'.$i.'_ISIN')){
+            $codes[]=array('ISIN'=>variable_get('share_price_graph_c'.$i.'_ISIN', ''),'BC'=>variable_get('share_price_graph_c'.$i.'_BC', ''),
+            'currency'=>variable_get('share_price_graph_c'.$i.'_currency', ''),'shortname'=> variable_get('share_price_graph_c'.$i.'_short_name', ''),
+            'longname'=> variable_get('share_price_graph_c'.$i.'_long_name', ''));
+            
+        }
+    }
+//print_r($codes);
+    $colors=array('#5c6f7b','#008800','#C000C0','#990000','#FF2020','#CCCCCC');
+    $codes_string=''; 
+    $i=0;
+     foreach($codes as $codedetail){
+         if($i>0) $codes_string.=',';
+         $codes_string.=  $i.":      {\"code\":\"".$codes[$i]['ISIN'].",".$codes[$i]['BC']."\" , \"name\":\"".$codes[$i]['longname']."\" , \"currency\":\"".$codes[$i]['currency']."\", \"colour\":\"".$colors[$i]."\", \"shortname\":\"".$codes[$i]['shortname']."\"    }";
+         
+     $i++;
+     }
+     if($codes_string=='') return ('Please configure the graph parameters');
+    else{ $output="<script src=\"//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js\" type=\"text/javascript\"></script>
+<script src=\"".drupal_get_path('module','shareserver_connect')."/js/amstock.js\" type=\"text/javascript\"></script>
+<script src=\"".drupal_get_path('module','shareserver_connect')."/js/amloader.js\" type=\"text/javascript\"></script>
+<script src=\"".drupal_get_path('module','shareserver_connect')."/js/raphael.js\" type=\"text/javascript\"></script>
+
+<style>
+table{padding-top: 20px;}
+th, td{border:1px solid #ccc;font-size: 10px;}
+input[type=\"button\"]{font-size: 10px; width: 34px;}
+#chartdiv{width:100%; height:500px; margin-bottom:10px;font-size: 12px;font-family:Arial, Helvetica, sans-serif;color:#434343;background-image:url(".drupal_get_path('module','shareserver_connect')."/images/logo.png);background-repeat:no-repeat;background-position:95% 35%;background-attachment:fixed;}
+#chartdiv{width:100%; height:500px; margin-bottom:10px;font-size: 12px;font-family:Arial, Helvetica, sans-serif;color:#434343;background-image:url(".drupal_get_path('module','shareserver_connect')."/images/logo.png);background-repeat:no-repeat;background-position:95% 35%;background-attachment:fixed;}
+#chartdiv select{margin-left:5px;font-size:75%;}
+#chartdiv div{padding-bottom:5px;}
+</style>
+
+<script type=\"text/javascript\">
+            var debug = false;
+            var showTable = true;
+            var error = 0;
+            var initialCode = \"".$codes[0]['ISIN'].",".$codes[0]['BC']."\";
+            var vitalData = {".$codes_string."
+            };
+            
+            var chart = new AmCharts.AmStockChart();
+            var chartData = {};
+            var activeCodes = [vitalData[0].code , \"\"];
+            var activePeriod = new Object();
+            var totalCodes = getObjectSize(vitalData);
+            
+            if(error!=1){
+                AmCharts.ready(function () {
+                    for(var i=0; i<totalCodes; i++){
+                        chartData[vitalData[i].code] = [];
+                        amLoader.loadCsv('/share-price-graph-content/' + [vitalData[i].code], chartData[vitalData[i].code], ',', 0);
+                    }
+                    createStockChart();
+                 
+                });
+            }
+
+
+            function createStockChart() {
+                var chart = new AmCharts.AmStockChart();
+                chart.pathToImages = \"http://www.globalports.com/globalports/t/m/amstockj/amcharts/images/\";
+                
+                for(var i=0; i<totalCodes; i++){
+                    var dataSet1 = new AmCharts.DataSet();
+                    var name = vitalData[i].shortname;  //here is the title
+                    if(i!=0) dataSet1.compared = false;
+                    dataSet1.title = name;
+                    dataSet1.color = vitalData[i].colour;
+                    dataSet1.fieldMappings = [{
+                        fromField: \"col1\",toField: \"col1\"
+                    }, {
+                        fromField: \"col2\",toField: \"col2\"
+                    }];
+                    
+                    dataSet1.dataProvider = chartData[vitalData[i].code];
+                    dataSet1.categoryField = \"date\";  
+                    chart.categoryField = \"date\";
+                    chart.dataSets.push(dataSet1);
+                }
+                
+                
+                // PANELS ///////////////////////////////////////////                                                  
+                // first stock panel
+                var stockPanel1 = new AmCharts.StockPanel();
+                stockPanel1.showCategoryAxis = false;
+                stockPanel1.title = \"Value\";
+                stockPanel1.percentHeight = 70;
+                stockPanel1.panEventsEnabled = true;                
+
+                // graph of first stock panel
+                var graph1 = new AmCharts.StockGraph();
+                graph1.valueField = \"col1\";
+                graph1.comparable = true;
+                graph1.compareField = \"col1\";
+                stockPanel1.addStockGraph(graph1);
+
+                // create stock legend                
+                stockPanel1.stockLegend = new AmCharts.StockLegend();
+
+
+                // second stock panel
+                var stockPanel2 = new AmCharts.StockPanel();
+                stockPanel2.panEventsEnabled = true;                
+                stockPanel2.title = \"Volume\";
+                stockPanel2.percentHeight = 30;
+                var graph2 = new AmCharts.StockGraph();
+                graph2.valueField = \"col2\";
+                graph2.type = \"column\";
+                graph2.showBalloon = false;
+                graph2.fillAlphas = 1;
+                stockPanel2.addStockGraph(graph2);
+                stockPanel2.stockLegend = new AmCharts.StockLegend();
+
+                // set panels to the chart
+                chart.panels = [stockPanel1, stockPanel2];
+
+
+                // OTHER SETTINGS ////////////////////////////////////
+                var sbsettings = new AmCharts.ChartScrollbarSettings();
+                sbsettings.graph = graph1;
+                chart.chartScrollbarSettings = sbsettings;
+
+
+                // PERIOD SELECTOR ///////////////////////////////////
+                var periodSelector = new AmCharts.PeriodSelector();
+                periodSelector.position = \"bottom\";
+                periodSelector.periods = [{
+                    period: \"DD\",
+                    count: 10,
+                    label: \"10D\"
+                }, {
+                    period: \"MM\",
+                    count: 1,
+                    label: \"1M\"
+                }, {
+                    period: \"YYYY\",
+                    count: 1,
+                    label: \"1Y\",
+                    selected: true
+                }, {
+                    period: \"YYYY\",
+                    count: 3,
+                    label: \"3Y\"
+                }, {
+                    period: \"YTD\",
+                    label: \"YTD\"
+                }, {
+                    period: \"MAX\",
+                    label: \"MAX\"
+                }];
+                chart.periodSelector = periodSelector;
+
+                var panelsSettings = new AmCharts.PanelsSettings();
+                panelsSettings.usePrefixes = true;
+                panelsSettings.panEventsEnabled = true;
+                chart.panelsSettings = panelsSettings;
+
+                // DATA SET SELECTOR
+                var dataSetSelector = new AmCharts.DataSetSelector();
+                dataSetSelector.position = \"top\";
+                chart.dataSetSelector = dataSetSelector;
+                
+                chart.addListener(\"zoomed\", function (data) {
+                    if(debug) console.log('period clicked: ' + data.startDate + ' -- ' + data.endDate);
+                    activePeriod.start =  data.startDate;
+                    activePeriod.end =  data.endDate;
+                  
+                    if(showTable) updateTable();
+                });
+                
+                chart.addListener(\"dataUpdated\", function (data) {
+                    if(showTable) updateTable();
+                });
+
+                chart.write('chartdiv');
+                   addLogo();
+            }
+            
+            //from here starts the madness
+            
+            function getObjectSize(obj) {
+                var size = 0, key;
+                for (key in obj) {
+                    if (obj.hasOwnProperty(key)) size++;
+                }
+                return size;
+            };
+            
+            function clearoutTags(p){
+                //if any custom tag remains, clear out
+                var temp = p.split(\"{{\");
+                for(var i=0; i<temp.length; i++)
+                    p = p.replace(/\{\{.*?\}\}/, ' '); 
+                return p;
+            }
+            
+            function updateTable(){
+                var rows =\"\";
+                
+                $(document).ready(function(){
+                    //get table from template
+                    var mytable = getTable();
+                    
+                    //get the data for first code - ALWAYS
+                    var rowOneData = getAveragesForCode(vitalData[0].code, chartData[vitalData[0].code], activePeriod);
+                    //get new empty row from template
+                    var row = getRow();
+                    
+                    var av = (rowOneData.theAverageVolume <1000000)? rowOneData.theAverageVolume : (rowOneData.theAverageVolume/1000000).toFixed(2) + \"M\";
+                    var at = (rowOneData.theAverageValueTraded <1000000)? rowOneData.theAverageValueTraded : (rowOneData.theAverageValueTraded/1000000).toFixed(2) + \"M\";
+                    //do some table update here
+                    row = row.replace(\"{{instrument}}\", vitalData[0].shortname);
+                    row = row.replace(\"{{currency}}\", getCurrencyForName(vitalData, vitalData[0].code));
+                    row = row.replace(\"{{fclose}}\", rowOneData.firstClose);
+                    row = row.replace(\"{{high}}\", rowOneData.highClose);
+                    row = row.replace(\"{{low}}\", rowOneData.lowClose);
+                    row = row.replace(\"{{last}}\", rowOneData.lastClose);
+                    row = row.replace(\"{{change}}\", rowOneData.change);
+                    row = row.replace(\"{{pctchange}}\", (rowOneData.pctchange!=\"-\")? rowOneData.pctchange + \"%\" : \"-\");
+                    row = row.replace(\"{{averageVolume}}\", av);
+                    row = row.replace(\"{{averageTrade}}\", at);
+                    rows += row;
+                
+                    //if we have other codes selected, bring it on
+                    $('#customselector').children('input:not(:first)').each(function(){
+                        var sel = $(this).val();
+                        var ischecked = ($(this).attr(\"checked\")!=\"undefined\" && $(this).attr(\"checked\")==\"checked\")?true:false;
+                        
+                        if(ischecked){
+                            //build new empty row
+                            var row2 = getRow();
+                            
+                            //get the data for this code
+                            var rowTwoData = getAveragesForCode(vitalData[sel].code, chartData[vitalData[sel].code], activePeriod); 
+                            
+                            //NOTE: do not display average volume for comparator codes
+                            //(rowTwoData.theAverageVolume==0)?\"-\":rowTwoData.theAverageVolume
+                            //(rowTwoData.theAverageValueTraded==0)?\"-\":rowTwoData.theAverageValueTraded
+                            
+                            //do some table update here
+                            row2 = row2.replace(\"{{instrument}}\", vitalData[sel].code);
+                            row2 = row2.replace(\"{{currency}}\", getCurrencyForName(vitalData, vitalData[sel].code));
+                            row2 = row2.replace(\"{{fclose}}\", rowTwoData.firstClose);
+                            row2 = row2.replace(\"{{high}}\", rowTwoData.highClose);
+                            row2 = row2.replace(\"{{low}}\", rowTwoData.lowClose);
+                            row2 = row2.replace(\"{{last}}\", rowTwoData.lastClose);
+                            row2 = row2.replace(\"{{change}}\", rowTwoData.change);
+                            row2 = row2.replace(\"{{pctchange}}\", (rowTwoData.pctchange!=\"-\")? rowTwoData.pctchange + \"%\" : \"-\");
+                            row2 = row2.replace(\"{{averageVolume}}\", \"-\");
+                            row2 = row2.replace(\"{{averageTrade}}\", \"-\");
+                            
+                            rows += row2;
+                        }
+                        
+                    });
+                    
+
+                    mytable = mytable.replace(\"{{therows}}\",rows);
+                    
+                    //clear out any unused tags
+                    mytable = clearoutTags(mytable);
+                    if($('.averagesintable').length!=0) $('.averagesintable').remove();
+                    $('#chartdiv').append(mytable);
+                    $('.averagesintable').width($('#chartdiv').width());
+                });
+                
+                
+            }
+            
+            function getAveragesForCode(code, dataArray, period){
+                    var ret = new Object();
+                    var _dataArray = [];
+                    
+                    //date array should be ordered, generating the array of dates we currently need
+                    for(var i=0; i<dataArray.length; i++){
+                        var _adate = dataArray[i].date;
+                        if(_adate>=period.start && _adate<=period.end)
+                            _dataArray.push(dataArray[i]);
+                    }
+                    
+                    if(debug) console.log(_dataArray.length); //reality check
+                    
+                    if(_dataArray.length>0){
+                        
+                        //get first close
+                        ret.firstClose = _dataArray[0].col1;
+                        
+                        //get high/low
+                        var theMax = 0;
+                        var theMin = \"\";
+                        for(var i=0; i<_dataArray.length; i++){
+                            if(_dataArray[i].col1 > theMax) theMax = _dataArray[i].col1;
+                            
+                            if(theMin==\"\") theMin = _dataArray[i].col1;
+                            if(_dataArray[i].col1 < theMin) theMin = _dataArray[i].col1;
+                        }
+                        ret.highClose = theMax.toFixed(2);
+                        ret.lowClose = theMin.toFixed(2);
+                        
+                        //get last
+                        ret.lastClose = _dataArray[_dataArray.length-1].col1;
+                        
+                        //chng
+                        ret.change = (ret.lastClose - ret.firstClose).toFixed(2);
+                        
+                        //chng%
+                        ret.pctchange = (ret.lastClose/ret.firstClose*100 - 100).toFixed(2);
+                    
+                        //daily average
+                        var theSum = 0; var theVolumeSum = 0;
+                        for(var i=0; i<_dataArray.length; i++){
+                            theSum = theSum + _dataArray[i].col1;
+                            theVolumeSum = theVolumeSum + _dataArray[i].col2;
+                        }
+                        ret.sumOfClose = theSum;
+                        ret.theAverageClosePrice = (theSum / _dataArray.length).toFixed(2);
+                        ret.theVolumeSum = theVolumeSum.toFixed(2);
+                        
+                        //average volume
+                        ret.theAverageVolume = (theVolumeSum / _dataArray.length).toFixed(2);
+                        
+                        //average value
+                        ret.theAverageValueTraded = (ret.theAverageVolume * ret.theAverageClosePrice).toFixed(2);
+                        
+                    }
+                    else{
+                        ret.firstClose = ret.lastClose = ret.theMax = ret.theMin =  ret.highClose = ret.lowClose = ret.change = ret.pctchange = ret.sumOfClose = ret.theAverageClosePrice = ret.theVolumeSum = ret.theAverageVolume = ret.theAverageValueTraded = \"-\";
+                    }
+                    
+                    return ret;
+            }
+            
+            function getTable(){
+                var table=\"<table width='100%' class='averagesintable' cellpadding='5' cellspacing='0'>\";
+                table +=\"<tbody>\";
+                table +=\"<tr>\";
+                    table +=\"<th  rowspan='2' align='center'>Inst.</th>\";
+                    table +=\"<th  rowspan='2' align='center'>Currency</th>\";
+                    table +=\"<th  rowspan='2' align='center'>First Close</th>\";
+                    table +=\"<th  rowspan='2' align='center'>High</th>\";
+                    table +=\"<th  rowspan='2' align='center'>Low</th>\";
+                    table +=\"<th  rowspan='2' align='center'>Last</th>\";
+                    table +=\"<th  rowspan='2' align='center'>Chng</th>\";
+                    table +=\"<th  rowspan='2' align='center'>Chng,%</th>\";
+                    table +=\"<th  colspan='2' align='center'>Daily Average Traded</th>\";
+                table +=\"</tr>\";
+                table +=\"<tr>\";
+                    table +=\"<th >Volume</th>\";
+                    table +=\"<th >Value</th>\";
+                table +=\"</tr>\";
+                table +=\"{{therows}}\";
+                table +=\"</tbody>\";
+                table +=\"</table>\";
+                
+                return table;
+            }
+            
+            function getRow(){
+                var tablerow =\"<tr>\";
+                tablerow +=\"<td  align='center'>{{instrument}}</td>\";
+                tablerow +=\"<td  nowrap='' align='center'>{{currency}}</td>\";
+                tablerow +=\"<td  nowrap='' align='center'>{{fclose}}</td>\";
+                tablerow +=\"<td  nowrap='' align='center'>{{high}}</td>\";
+                tablerow +=\"<td  nowrap='' align='center'>{{low}}</td>\";
+                tablerow +=\"<td  nowrap='' align='center'>{{last}}</td>\";
+                tablerow +=\"<td  nowrap='' align='center'>{{change}}</td>\";
+                tablerow +=\"<td  nowrap='' align='center'>{{pctchange}}</td>\";
+                tablerow +=\"<td  nowrap='' align='center'>{{averageVolume}}</td>\";
+                tablerow +=\"<td  nowrap='' align='center'>{{averageTrade}}</td>\";
+                tablerow +=\"</tr>\";
+                return tablerow;
+            }
+            
+            function getCodeForName(allNamesCodes, thisName){
+                for(var i=0; i<totalCodes; i++){
+                    if(allNamesCodes[i].name == thisName) return allNamesCodes[i].code;
+                }
+            }
+            
+            function getCurrencyForName(allNamesCodes, thisCode){
+                for(var i=0; i<totalCodes; i++){
+                    if(allNamesCodes[i].code == thisCode) return allNamesCodes[i].currency;
+                }
+            }
+            
+            function addLogo(){
+                var d = jQuery('#chartdiv div').children('div').first().next();
+                d.next().prepend(\"<div class='companylogo'></div>\");
+                d.parent().css('position','relative');
+            }
+        </script>
+    
+    
+        <div id=\"chartdiv\"></div> ";
+        print $output;
+    }
+}
+
+
+function static_graph($ISIN=NULL,$BC=NULL,$sizex=400,$sizey=250){
+        
+    if(!$ISIN){
+        $ISIN=variable_get('share_price_ISIN', '');
+        $BC=variable_get('share_price_BC', '');
+    }
+        //load the standard variables
+        $data=_static_graph_data_load($ISIN,$BC);
+        //work out the max value in the array
+        $max=max($data);
+        $chart = array(
+        '#chart_id' => 'thumb_stock_chart',
+        '#size' => chart_size($sizex, $sizey),
+        '#adjust_resolution' => array('#max'=>$max+($max/3),'#adjust'=>TRUE),
+        '#grid_lines' => chart_grid_lines(20, 20, 1, 5),
+        '#type' => CHART_TYPE_LINE,
+        );
+        
+        $chart['#data']['test'] = $data;
+        $chart['#mixed_axis_labels'][CHART_AXIS_X_BOTTOM][1][] = chart_mixed_axis_label(date('M',strtotime('-3 months')));
+        $chart['#mixed_axis_labels'][CHART_AXIS_X_BOTTOM][1][] = chart_mixed_axis_label(date('M',strtotime('-1.5 months')));
+        $chart['#mixed_axis_labels'][CHART_AXIS_X_BOTTOM][1][] = chart_mixed_axis_label(date('M'));
+        $chart['#mixed_axis_labels'][CHART_AXIS_Y_LEFT][0][] = chart_mixed_axis_range_label(0,number_format($max+($max/3),2));                
+    echo theme('chart', array('chart' => $chart));
+}
+function _static_graph_data_load($ISIN,$BC){
+    //load the last 3 months worth of data
+    $link=_shareserver_connect_db_open();
+    $result=mysql_query("SELECT valor,bc,currency FROM main_shareserver_instruments WHERE ISIN='".$ISIN."' AND BC='".$BC."'",$link);
+    $lookup=mysql_fetch_assoc($result);
+    //select each day that needs to be retrieved
+    //print("SELECT DISTINCT pricetime FROM main_shareserver_historic_listing_fields WHERE pricetime<'".$date_to."' AND pricetime>'".$date_from."' ORDER BY pricetime DESC ",$link);
+    $lookupstring=$lookup['valor'].','.$lookup['bc'].','.$lookup['currency'];
+    $test_data=array();
+    $result=mysql_query("SELECT pricetime,3_1,14_16 FROM main_shareserver_historic_listing WHERE lookup='".$lookupstring."' AND pricetime>'".(date('Y-m-d',strtotime('-3 months')))."' ORDER BY pricetime ASC");
+    while($entry=mysql_fetch_assoc($result)){
+        if($entry['14_16']) $volume=$entry['14_16']; else $volume=0;
+        if($entry['3_1']) {
+            if($entry['3_1']) 
+            $test_data[]=$entry['3_1'];
+        }
+//        print($date['pricetime'].','.$object->value.'\n');
+    }  
+    _shareserver_connect_db_close();
+    return $test_data;  
+}
+?>
