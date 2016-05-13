@@ -114,6 +114,20 @@ function _adjustTabs($quicktabs, $tabs_before_archive){
 function rearesponsive_menu_link($variables) {
   $element = $variables['element'];
   $sub_menu = '';
+  $is_sidebar_link = FALSE;
+  $in_active_trail = $element['#original_link']['in_active_trail'];
+  // Menu block #1 theming helper class.
+  if (isset($element['#bid']['delta']) && ($element['#bid']['delta'] == 1)){
+    $is_sidebar_link = TRUE;
+    $depth = $element['#original_link']['depth'];
+    $element['#attributes']['class'][] = 'menu-level-'.$depth;
+  }
+  // Sidebar active menu link groups children into <ul>
+  if (isset($element['#bid']) && $element['#bid']['delta'] == 1) {
+    if ($is_sidebar_link && $in_active_trail) {
+      $sub_menu = drupal_render($element['#below']);
+    }
+  }
 
   if ($element['#below']) {
     // Prevent dropdown functions from being added to management menu so it

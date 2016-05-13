@@ -171,10 +171,18 @@ ul.nav li.dropdown ul.dropdown-menu {
   color: #559767;
 }
 
-.menu-block-wrapper .menu .active-trail a {
+.menu-block-wrapper .menu .active-trail > a {
   color: #559767;
 }
-
+.menu-block-wrapper .menu .active-trail .menu li {
+  padding-left: 15px;
+}
+.menu-block-wrapper .menu li.menu-level-3.last {
+  border-bottom: none;
+}
+.menu-block-wrapper .menu .active-trail .menu a {
+  font-size: 80%;
+}
 /**
  * Quicktabs gral styles
  */
@@ -283,6 +291,9 @@ ul.quicktabs-tabs li {
 .front .view-financial-reports .views-row {
   border-bottom: 1px dotted gray;
   padding-bottom: 4px;
+  background-image: url('/modules/file/icons/application-pdf.png');
+  background-repeat: no-repeat;
+  background-position: 0 2px;
 }
 
 .front .view-financial-reports .file-icon {
@@ -332,6 +343,24 @@ ul.quicktabs-tabs li {
 .region-footer .menu > li > a:hover {
   text-decoration: underline;
   background: none;
+}
+
+article.node table {
+  border-top: 1px solid #151E46;
+}
+article.node table th {
+  text-align: left;
+  background-color: #efefef;
+  padding: 10px 5px 10px 5px;
+  color: #151E46;
+}
+article.node table td {
+  padding: 5px 5px 5px 5px;
+  border-bottom: 1px dotted #626365;
+  vertical-align: top;
+}
+table tr:nth-child(odd) {
+  background-color: #efefef;
 }
 
 @media (max-width: 768px) {
@@ -399,6 +428,7 @@ ul.quicktabs-tabs li {
   .front .view-news .views-field-field-news-release-date {
     text-align: right;
     width: 17%;
+    padding-top: 2px;
   }
   .front .view-financial-reports a {
     float: right;
