@@ -263,6 +263,9 @@ ul.quicktabs-tabs li {
   padding-right: 0;
   padding-left: 0;
 }
+iframe {
+  width: 100%;
+}
 
 /**
 * Front page styles
