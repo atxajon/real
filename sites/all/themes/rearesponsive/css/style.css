@@ -252,6 +252,19 @@ ul.quicktabs-tabs li {
 }
 
 /**
+* Bootstrap no gutters hack
+*/
+.row.no-gutters {
+  margin-right: 0;
+  margin-left: 0;
+}
+.row.no-gutters > [class^="col-"],
+.row.no-gutters > [class*=" col-"] {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+/**
 * Front page styles
 */
 .front .region-highlighted .block {
@@ -301,8 +314,8 @@ ul.quicktabs-tabs li {
   float: left;
 }
 .front .view-financial-reports a {
-  float: left;
-  display: block;
+  float: right;
+  width: 95%;
 }
 
 #main-col {
@@ -332,8 +345,12 @@ ul.quicktabs-tabs li {
 
 .region-footer .block-menu .leaf a {
   padding: 0 10px;
+  margin-bottom: 5px;
   color: #8A8A8A;
   border-right: 1px solid #8A8A8A;
+}
+.region-footer .block-menu .first a {
+  padding: 0 10px 0 0;
 }
 
 .region-footer .block-menu .last a {
@@ -418,7 +435,7 @@ table tr:nth-child(odd) {
     height: 24px;
   }
   #quicktabs-company_history a {
-    font-size:11px;
+    font-size: 11px;
     padding: 5px;
   }
 
@@ -431,7 +448,6 @@ table tr:nth-child(odd) {
     padding-top: 2px;
   }
   .front .view-financial-reports a {
-    float: right;
     width: 80%;
   }
 
