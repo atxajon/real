@@ -4,3 +4,18 @@ sites/*/settings*.php
 # Ignore paths that contain user-generated content.
 sites/*/files
 sites/*/private
+
+# Logs and databases
+*.log
+*.sql
+
+# OS generated files
+.DS_Store*
+ehthumbs.db
+Icon?
+Thumbs.db
+._*
+
+# Ignore configuration files that may contain sensitive information.
+.idea
+.idea/*s

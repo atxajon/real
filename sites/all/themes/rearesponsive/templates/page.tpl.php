@@ -145,7 +145,7 @@
 
       <section<?php print $content_column_class; ?> id="main-col">
         <div class="row">
-          <div class="col-sm-9 main-content-col">
+          <div class="col-sm-8 main-content-col">
         <?php if (!empty($breadcrumb)): print $breadcrumb; endif; ?>
         <a id="main-content"></a>
         <?php print $messages; ?>
@@ -161,7 +161,7 @@
         <?php print render($page['content']); ?>
           </div>
         <?php if (!empty($page['sidebar_first'])): ?>
-          <aside id="menu-sidebar" class="col-sm-3" role="complementary">
+          <aside id="menu-sidebar" class="col-sm-4" role="complementary">
             <?php print render($page['sidebar_first']); ?>
           </aside>  <!-- /#sidebar-first -->
         </div>

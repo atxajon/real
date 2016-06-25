@@ -183,6 +183,10 @@ ul.nav li.dropdown ul.dropdown-menu {
 .menu-block-wrapper .menu .active-trail .menu a {
   font-size: 80%;
 }
+#menu-sidebar .block {
+  margin-bottom: 20px;
+}
+
 /**
  * Quicktabs gral styles
  */
