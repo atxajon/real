@@ -2,6 +2,7 @@
 body {
   background: url('../images/main-bg-tile.gif') repeat;
   color: #2F2F2F;
+  font-size: 12px;
 }
 .cke_editable {
   background: none;
@@ -295,13 +296,16 @@ iframe {
 .front .view-news .views-row {
   display: block;
   border-bottom: 1px dotted gray;
+  padding: 5px 0;
 }
 .front .view-news .views-field-field-news-release-date {
-  text-align: left;
   padding-right: 5px;
   float: left;
   font-size: 11px;
   color: #559767;
+  text-align: right;
+  width: 17%;
+  padding-top: 1px;
 }
 .front .view-news .views-field-title {
   float: left;
@@ -310,10 +314,10 @@ iframe {
 }
 .front .view-financial-reports .views-row {
   border-bottom: 1px dotted gray;
-  padding-bottom: 4px;
+  padding: 5px 0;
   background-image: url('/modules/file/icons/application-pdf.png');
   background-repeat: no-repeat;
-  background-position: 0 2px;
+  background-position: 0 6px;
 }
 
 .front .view-financial-reports .file-icon {
@@ -322,7 +326,7 @@ iframe {
 }
 .front .view-financial-reports a {
   float: right;
-  width: 95%;
+  width: 91%;
 }
 
 #main-col {
@@ -449,13 +453,11 @@ table tr:nth-child(odd) {
   /**
   * Front page views specific styles
   */
-  .front .view-news .views-field-field-news-release-date {
-    text-align: right;
-    width: 17%;
-    padding-top: 2px;
-  }
   .front .view-financial-reports a {
     width: 80%;
+  }
+  .front .view-news .views-field-field-news-release-date {
+    padding-top: 0px;
   }
 
   .form-search,
@@ -503,5 +505,8 @@ table tr:nth-child(odd) {
 @media (min-width: 1200px) {
   .after-logo-first {
     margin-left: 150px;
+  }
+  .front .view-financial-reports a {
+    width: 83%;
   }
 }
